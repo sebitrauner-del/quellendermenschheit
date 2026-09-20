@@ -31,7 +31,27 @@ SITE = "https://quellendermenschheit.de"
 # ---------------------------------------------------------------- Hilfsfunktionen
 
 def esc(s):
-    return html.escape(s, quote=False) if s else ""
+    """Robust gegen die Formate, die in den Artifact-Daten historisch gewachsen
+    sind: einzelne Strings, Zahlen, None - und gelegentlich Listen von Absätzen
+    (z.B. eine mehrteilige Kapitel-Anmerkung)."""
+    if not s:
+        return ""
+    if isinstance(s, (list, tuple)):
+        s = " ".join(str(x) for x in s if x)
+    elif not isinstance(s, str):
+        s = str(s)
+    return html.escape(s, quote=False)
+
+def as_paragraphs(v):
+    """Gibt eine Liste von Absatz-Strings zurueck - egal ob die Quelle einen
+    einzelnen String oder bereits eine Liste geliefert hat."""
+    if not v:
+        return []
+    if isinstance(v, str):
+        return [v]
+    if isinstance(v, (list, tuple)):
+        return [x for x in v if x]
+    return [str(v)]
 
 def strip_wrapper(raw):
     """Extrahiert den Inhalt zwischen <body ...> und </body> aus einem
@@ -93,6 +113,8 @@ h3.division-title{{font-family:var(--font-display);color:var(--gold-strong);marg
 h4.chapter-title{{font-family:var(--font-display);margin-top:1.5rem}}
 h4.chapter-title .de{{display:block;font-weight:400;font-style:italic;color:var(--ink-soft);font-size:.95rem}}
 .chapter-note{{background:var(--bg-card);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;padding:.7rem 1rem;font-size:.85rem;color:var(--ink-soft);margin:.6rem 0 1.2rem}}
+.chapter-note p{{margin:0 0 .55rem}}
+.chapter-note p:last-child{{margin-bottom:0}}
 .unit{{margin:0 0 1.1rem;padding-bottom:1.1rem;border-bottom:1px dashed var(--line)}}
 .unit .n{{color:var(--ink-faint);font-size:.85rem;font-weight:600}}
 .unit .sa{{font-style:italic;color:var(--ink-soft);margin:.2rem 0}}
@@ -119,7 +141,7 @@ def render_frontmatter_html(fm):
     if fm:
         parts.append('<section class="frontmatter">')
         for key, label in (("vorwort", "Vorwort"), ("einfuehrung", "Einführung")):
-            paras = fm.get(key)
+            paras = as_paragraphs(fm.get(key))
             if paras:
                 parts.append(f'<h2 class="section-title">{label}</h2>')
                 for p in paras:
@@ -135,9 +157,10 @@ def render_chapters_html(chapters, chapter_label, unit_label, show_division_titl
         ctitle_sa = ch.get("title_sa") or ""
         ctitle_de = ch.get("title_de") or ""
         parts.append(f'<h4 class="chapter-title">{esc(chapter_label)} {esc(str(ch.get("num","")))}: {esc(ctitle_sa)}<span class="de">{esc(ctitle_de)}</span></h4>')
-        note = ch.get("note")
-        if note:
-            parts.append(f'<div class="chapter-note">{esc(note)}</div>')
+        note_paras = as_paragraphs(ch.get("note"))
+        if note_paras:
+            inner = "".join(f"<p>{esc(p)}</p>" for p in note_paras)
+            parts.append(f'<div class="chapter-note">{inner}</div>')
         for u in ch.get("units", []):
             notes = u.get("notes")
             parts.append(
