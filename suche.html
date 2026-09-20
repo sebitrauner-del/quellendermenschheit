@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Suche | Quellen der Menschheit</title>
+<meta name="description" content="Durchsuche die Bibliothek Quellen der Menschheit nach Werken und Kapiteln.">
+<link rel="canonical" href="https://quellendermenschheit.de/suche.html">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Suche">
+<meta property="og:description" content="Durchsuche die Bibliothek Quellen der Menschheit nach Werken und Kapiteln.">
+<meta property="og:url" content="https://quellendermenschheit.de/suche.html">
+<meta property="og:site_name" content="Quellen der Menschheit">
+<meta property="og:locale" content="de_DE">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📜</text></svg>">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="/stil.css">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": [{"@type": "ListItem", "position": 1, "name": "Quellen der Menschheit", "item": "https://quellendermenschheit.de/"}, {"@type": "ListItem", "position": 2, "name": "Suche"}]}</script>
+</head>
+<body>
+<header class="kopf"><div class="innen">
+  <a class="marke" href="/">Quellen der Menschheit</a>
+  <nav><a href="/">Bibliothek</a><a href="/suche.html">Suche</a><a href="/ueber.html">Über</a></nav>
+</div></header>
+<nav class="brot"><a href="/">Quellen der Menschheit</a> › Suche</nav>
+<main>
+<h1>Bibliothek durchsuchen</h1><p class="unter">Werke, Kapitel und Abschnitte. Der Volltext jedes Kapitels steht auf der jeweiligen Seite.</p><input id="suchfeld" type="search" placeholder="Werk, Kapitel oder Regal…" autofocus><div id="ergebnis"><p class="unter">Index wird geladen…</p></div>
+<script>
+let D=[];const F=document.getElementById('suchfeld'),E=document.getElementById('ergebnis');
+const norm=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+fetch('/suchindex.json').then(r=>r.json()).then(d=>{D=d;E.innerHTML='<p class="unter">'+d.length.toLocaleString('de-DE')+' Einträge bereit.</p>';los()});
+function los(){const q=norm(F.value.trim());if(q.length<2){E.innerHTML='<p class="unter">Mindestens zwei Zeichen eingeben.</p>';return}
+const t=D.filter(x=>norm(x.t).includes(q)||norm(x.k).includes(q)||norm(x.r).includes(q)).slice(0,200);
+E.innerHTML=t.length?'<ul class="liste">'+t.map(x=>'<li><span class="nr"></span><span class="titel"><a href="'+x.u+'">'+x.t+'</a><span class="de">'+x.k+'</span></span><span class="stand">'+x.r+'</span></li>').join('')+'</ul>':'<p class="unter">Nichts gefunden.</p>'}
+F.addEventListener('input',los);
+const p=new URLSearchParams(location.search).get('q');if(p){F.value=p}
+</script>
+</main>
+<footer class="fuss">
+  <p><a href="/">Quellen der Menschheit</a> · eigenständige deutsche Übersetzungen klassischer Sanskrit-Literatur.<br>
+  Alle Übersetzungen sind gemeinfrei und werden fortlaufend erweitert.</p>
+</footer>
+</body>
+</html>
