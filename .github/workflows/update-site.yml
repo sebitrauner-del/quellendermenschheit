@@ -1,0 +1,81 @@
+name: Update site from translation artifacts
+
+on:
+  schedule:
+    # täglich um 06:00 UTC – ein paar Stunden nach den täglichen
+    # Übersetzungs-Tasks, damit deren neuester Stand sicher fertig ist
+    - cron: '0 6 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Neuesten Stand aller fünf Projekt-Artifacts laden
+        id: fetch
+        run: |
+          mkdir -p /tmp/raw
+          fetch_one () {
+            local name="$1" id="$2"
+            if curl -fsSL "https://claude.ai/code/artifact/${id}" -o "/tmp/raw/${name}.html" \
+               && [ -s "/tmp/raw/${name}.html" ]; then
+              echo "  -> ${name}: OK ($(wc -c < /tmp/raw/${name}.html) Bytes)"
+              echo "${name}=/tmp/raw/${name}.html" >> "$GITHUB_OUTPUT"
+            else
+              echo "  -> ${name}: NICHT ERREICHBAR (Artifact evtl. nicht öffentlich freigegeben) – wird in diesem Lauf übersprungen"
+              rm -f "/tmp/raw/${name}.html"
+            fi
+          }
+          fetch_one bibliothek  55d4a66b-dc2e-4235-9367-4f117697474a
+          fetch_one ramayana    1bce6a42-c4f0-449b-936c-efef62dfe5a0
+          fetch_one mahabharata f346f5dd-e5dd-4a32-bacd-ed765ca3f0ba
+          fetch_one aranyakas   386179c9-af7f-4923-98d5-4502204db54b
+          fetch_one tantras     72acd2bc-d26c-492e-a51f-a0418774d0a7
+          fetch_one mahapuranas 52f54360-8f77-49b5-83ae-84b7a8bffb32
+
+      - name: Veraltete Seiten aus der alten Ein-Projekt-Struktur entfernen
+        run: |
+          # Vor der ersten Umstellung auf 5 Projekte lagen die generierten
+          # Bibliotheks-Seiten direkt im Repo-Root (index.html, caraka.html, ...).
+          # Diese werden jetzt unter /bibliothek/ erzeugt; alte Root-HTML-Dateien
+          # räumen wir hier weg, damit keine verwaisten Alt-Seiten liegen bleiben.
+          find . -maxdepth 1 -name '*.html' -delete
+
+      - name: Webseite neu erzeugen
+        run: |
+          ARGS=""
+          [ -f "${{ steps.fetch.outputs.bibliothek }}" ]  && ARGS="$ARGS --bibliothek ${{ steps.fetch.outputs.bibliothek }}"
+          [ -f "${{ steps.fetch.outputs.bibliothek }}" ] && [ -f "${{ steps.fetch.outputs.ramayana }}" ] && ARGS="$ARGS --ramayana ${{ steps.fetch.outputs.ramayana }}"
+          [ -f "${{ steps.fetch.outputs.mahabharata }}" ] && ARGS="$ARGS --mahabharata ${{ steps.fetch.outputs.mahabharata }}"
+          [ -f "${{ steps.fetch.outputs.aranyakas }}" ]   && ARGS="$ARGS --aranyakas ${{ steps.fetch.outputs.aranyakas }}"
+          [ -f "${{ steps.fetch.outputs.tantras }}" ]     && ARGS="$ARGS --tantras ${{ steps.fetch.outputs.tantras }}"
+          [ -f "${{ steps.fetch.outputs.mahapuranas }}" ] && ARGS="$ARGS --mahapuranas ${{ steps.fetch.outputs.mahapuranas }}"
+          if [ -z "$ARGS" ]; then
+            echo "Kein einziges Artifact erreichbar – breche ab, ohne etwas zu ändern."
+            exit 1
+          fi
+          echo "Baue Seite mit: $ARGS"
+          python3 scripts/build_site.py $ARGS --out .
+
+      - name: Änderungen committen und pushen (nur wenn etwas neu ist)
+        run: |
+          git config user.name "Quellen der Menschheit Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Keine Änderungen seit dem letzten Lauf."
+          else
+            git commit -m "Automatisches Update: neuester Übersetzungsstand (5 Projekte)"
+            git push
+          fi
