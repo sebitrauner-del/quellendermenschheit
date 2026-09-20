@@ -135,6 +135,27 @@ def _gzip_script(inhalt, script_id):
     return json.loads(gzip.decompress(base64.b64decode(m.group(1).strip())))
 
 
+def _einheit_normalisieren(u):
+    """Die Artifacts liefern Verse entweder als Objekt
+    {n, sa, de, notes, wfw} oder platzsparend als Array
+    [n, sa, de, notes, wfw]. Hier wird beides auf die Objektform gebracht."""
+    if isinstance(u, dict):
+        e = dict(u)
+    elif isinstance(u, (list, tuple)):
+        f = list(u) + [None] * (5 - len(u))
+        e = {"n": f[0], "sa": f[1] or "", "de": f[2] or ""}
+        if f[3]:
+            e["notes"] = f[3]
+        if f[4]:
+            e["wfw"] = f[4]
+    else:
+        return {"n": "", "sa": "", "de": str(u)}
+    n = e.get("n")
+    if isinstance(n, str) and n.strip().isdigit():
+        e["n"] = str(int(n.strip()))          # "001" -> "1", damit die Zaehlung einheitlich ist
+    return e
+
+
 def _abschnitte_bauen(divisions, werk_slug):
     """Normalisiert die 'divisions' eines Werks zu Abschnitten mit Kapiteln."""
     raus = []
@@ -151,7 +172,7 @@ def _abschnitte_bauen(divisions, werk_slug):
                 "titel_de": ch.get("title_de") or "",
                 "anmerkung": absaetze(ch.get("note") or ch.get("note_de")),
                 "tabelle_html": ch.get("table_html") or "",
-                "einheiten": ch.get("units", []) or [],
+                "einheiten": [_einheit_normalisieren(u) for u in (ch.get("units") or [])],
             })
         raus.append({
             "key": d.get("key") or slug(d.get("name") or "teil"),
@@ -203,13 +224,55 @@ def werke_aus_bibliothek(pfad, leseansicht_slug="bibliothek"):
     return werke
 
 
-def werk_aus_einzelwerk(pfad, *, regal, werk_slug, alt_praefix, leseansicht_slug):
-    """mahabharata.html: EIN Werk, dessen divisions echte Werkteile sind."""
+def _teile_zusammenfuehren(basis_divisions, weitere_divisions):
+    """Haengt die Kapitel eines Fortsetzungs-Artifacts an die passenden Werkteile
+    des Basis-Artifacts an. Zugeordnet wird ueber den Werkteil-Schluessel."""
+    nach_key = {d.get("key"): d for d in basis_divisions}
+    for d in weitere_divisions:
+        kapitel = d.get("chapters") or []
+        if not kapitel:
+            continue
+        k = d.get("key")
+        if k in nach_key:
+            nach_key[k].setdefault("chapters", []).extend(kapitel)
+        else:
+            basis_divisions.append(d)
+            nach_key[k] = d
+
+
+def _kapitel_sortieren(divisions):
+    """Sortiert die Kapitel jedes Werkteils nach Nummer - aber nur, wenn alle
+    Nummern Zahlen sind. Sonst bleibt die Reihenfolge, wie sie geliefert wurde.
+    Stabil, damit mehrere Kapitel mit derselben Nummer ihre Ordnung behalten."""
+    for d in divisions:
+        kapitel = d.get("chapters") or []
+        try:
+            schluessel = [int(str(c.get("num")).strip()) for c in kapitel]
+        except (TypeError, ValueError):
+            continue
+        d["chapters"] = [c for _, c in sorted(zip(schluessel, kapitel), key=lambda x: x[0])]
+
+
+def werk_aus_einzelwerk(pfad, *, regal, werk_slug, alt_praefix, leseansicht_slug,
+                        fortsetzungen=()):
+    """mahabharata.html: EIN Werk, dessen divisions echte Werkteile sind.
+
+    fortsetzungen: weitere Artifact-Dateien, die dieselben Werkteile fortsetzen
+    (das Mahābhārata ist aus Groessengruenden auf mehrere Artifacts verteilt)."""
     inhalt = _huelle_entfernen(open(pfad, encoding="utf-8").read())
     buch = _json_script(inhalt, "data-book")
+
+    for fpfad in fortsetzungen:
+        finhalt = _huelle_entfernen(open(fpfad, encoding="utf-8").read())
+        fbuch = _json_script(finhalt, "data-book")
+        if fbuch:
+            _teile_zusammenfuehren(buch.setdefault("divisions", []), fbuch.get("divisions", []))
+    if fortsetzungen:
+        _kapitel_sortieren(buch.get("divisions", []))
+
     w = _werk_aus_buch(
         buch, regal=regal, werk_slug=werk_slug,
-        leseansicht="/leseansicht/%s.html" % leseansicht_slug,
+        leseansicht=None if fortsetzungen else "/leseansicht/%s.html" % leseansicht_slug,
         alt_urls=["/%s/index.html" % alt_praefix],
     )
     if not w["abschnitt_label"] or w["abschnitt_label"] == "Teil":
@@ -700,6 +763,8 @@ def baue_kapitel(aus, w, a, k, vorher, nachher, urls):
         inhalt.append('<div class="hinweis"><p>Dieses Kapitel ist noch nicht übersetzt.</p></div>')
     if w.get("leseansicht"):
         inhalt.append('<p><a class="knopf" href="%s">Interaktive Leseansicht des ganzen Werks</a></p>' % w["leseansicht"])
+    elif w.get("leseansichten"):
+        inhalt.append('<p><a class="knopf" href="%s">Alle Leseansichten des Werks</a></p>' % werk_pfad(w))
 
     blaettern = []
     if vorher:
@@ -768,13 +833,15 @@ def baue_werk(aus, w, urls):
         "{:,}".format(anzahl_einh).replace(",", "."), esc(w["einheit_label"] + "e")))
     if w.get("umfang_hinweis"):
         inhalt.append('<div class="hinweis"><p>Umfang dieser Ausgabe: %s</p></div>' % esc(w["umfang_hinweis"]))
+    knoepfe = []
     if w.get("leseansicht"):
-        inhalt.append('<p><a class="knopf" href="%s">Interaktive Leseansicht</a>' % w["leseansicht"])
-        if w["glossar"]:
-            inhalt.append('<a class="knopf" href="%sglossar.html">Glossar</a>' % pfad)
-        inhalt.append("</p>")
-    elif w["glossar"]:
-        inhalt.append('<p><a class="knopf" href="%sglossar.html">Glossar</a></p>' % pfad)
+        knoepfe.append('<a class="knopf" href="%s">Interaktive Leseansicht</a>' % w["leseansicht"])
+    for label, url in w.get("leseansichten", []):
+        knoepfe.append('<a class="knopf" href="%s">Leseansicht %s</a>' % (url, esc(label)))
+    if w["glossar"]:
+        knoepfe.append('<a class="knopf" href="%sglossar.html">Glossar</a>' % pfad)
+    if knoepfe:
+        inhalt.append("<p>%s</p>" % "".join(knoepfe))
 
     fm = w["frontmatter"] or {}
     for schluessel, label in (("vorwort", "Vorwort"), ("einfuehrung", "Einführung")):
@@ -1104,9 +1171,18 @@ def bauen(raw_dir, aus, md_quellen=()):
     if hole("ramayana.html"):
         print("== Rāmāyaṇa =="); werke += werke_aus_bibliothek(hole("ramayana.html"), "ramayana")
     if hole("mahabharata.html"):
-        print("== Mahābhārata =="); werke += werk_aus_einzelwerk(
+        print("== Mahābhārata ==")
+        fortsetzungen = [hole(f) for f in ("mahabharata2.html", "mahabharata3.html", "mahabharata4.html")]
+        fortsetzungen = [f for f in fortsetzungen if f]
+        mb = werk_aus_einzelwerk(
             hole("mahabharata.html"), regal="Epen", werk_slug="mahabharata",
-            alt_praefix="mahabharata", leseansicht_slug="mahabharata")
+            alt_praefix="mahabharata", leseansicht_slug="mahabharata",
+            fortsetzungen=fortsetzungen)
+        if fortsetzungen:
+            mb[0]["leseansichten"] = [("Teil 1", "/leseansicht/mahabharata.html")] + [
+                ("Teil %d" % (i + 2), "/leseansicht/mahabharata%d.html" % (i + 2))
+                for i in range(len(fortsetzungen))]
+        werke += mb
     if hole("aranyakas.html"):
         print("== Āraṇyakas =="); werke += werke_aus_sammlung(
             hole("aranyakas.html"), regal="Āraṇyakas", alt_praefix="aranyakas", leseansicht_slug="aranyakas")
@@ -1185,6 +1261,9 @@ LESEANSICHTEN = [
     ("bibliothek",  "bibliothek.html",  "Quellen der Menschheit", "/"),
     ("ramayana",    "ramayana.html",    "Rāmāyaṇa",               "/epen/ramayana/"),
     ("mahabharata", "mahabharata.html", "Mahābhārata",            "/epen/mahabharata/"),
+    ("mahabharata2", "mahabharata2.html", "Mahābhārata (Teil 2)",  "/epen/mahabharata/"),
+    ("mahabharata3", "mahabharata3.html", "Mahābhārata (Teil 3)",  "/epen/mahabharata/"),
+    ("mahabharata4", "mahabharata4.html", "Mahābhārata (Teil 4)",  "/epen/mahabharata/"),
     ("aranyakas",   "aranyakas.html",   "Āraṇyakas",              "/aranyakas/"),
     ("tantras",     "tantras.html",     "Tantras & Āgamas",       "/tantras/"),
     ("mahapuranas", "mahapuranas.html", "Mahāpurāṇas",            "/puranas/"),
