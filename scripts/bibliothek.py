@@ -22,6 +22,11 @@ import re, json, base64, gzip, html, os, sys, unicodedata
 
 SITE = "https://quellendermenschheit.de"
 
+# IndexNow: Bing, Yandex, Seznam und Naver akzeptieren damit eine direkte
+# Meldung neuer und geaenderter Adressen, ohne Konto. Der Schluessel muss
+# als Textdatei unter der Wurzel liegen - siehe scripts/indexnow.py.
+INDEXNOW_KEY = "f2db99238091f8062578df5eed4bcba1a7bd49ad20aea37f"
+
 # ================================================================ Grundfunktionen
 
 def esc(s):
@@ -1271,6 +1276,7 @@ def bauen(raw_dir, aus, md_quellen=()):
     baue_ueber(aus, urls)
     baue_sitemap(aus, urls)
     schreiben(aus, "/stil.css", STIL)
+    schreiben(aus, "/%s.txt" % INDEXNOW_KEY, INDEXNOW_KEY)
     schreiben(aus, "/CNAME", "quellendermenschheit.de\n")
 
     # Weiterleitungen von den alten Adressen
