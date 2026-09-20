@@ -23,6 +23,8 @@ h1 .sa{display:block;font-style:italic;font-weight:400;color:var(--ink-soft);fon
 h2{font-family:var(--fd);font-size:1.35rem;margin:2.2rem 0 .6rem;padding-bottom:.25rem;border-bottom:1px solid var(--line)}
 h3{font-family:var(--fd);font-size:1.1rem;margin:1.6rem 0 .4rem;color:var(--gold-s)}
 p.unter{color:var(--ink-soft);font-size:1.02rem;margin:.3rem 0 1.2rem}
+p.kicker{margin:.8rem 0 0;font-size:.82rem;font-weight:600;letter-spacing:.06em;
+text-transform:uppercase;color:var(--gold-s)}
 .hinweis{background:var(--bg-card);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;
 padding:.7rem 1rem;font-size:.88rem;color:var(--ink-soft);margin:1rem 0}
 .hinweis p{margin:0 0 .5rem}.hinweis p:last-child{margin:0}

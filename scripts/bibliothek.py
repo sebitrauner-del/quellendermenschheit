@@ -543,6 +543,8 @@ h1 .sa{display:block;font-style:italic;font-weight:400;color:var(--ink-soft);fon
 h2{font-family:var(--fd);font-size:1.35rem;margin:2.2rem 0 .6rem;padding-bottom:.25rem;border-bottom:1px solid var(--line)}
 h3{font-family:var(--fd);font-size:1.1rem;margin:1.6rem 0 .4rem;color:var(--gold-s)}
 p.unter{color:var(--ink-soft);font-size:1.02rem;margin:.3rem 0 1.2rem}
+p.kicker{margin:.8rem 0 0;font-size:.82rem;font-weight:600;letter-spacing:.06em;
+text-transform:uppercase;color:var(--gold-s)}
 .hinweis{background:var(--bg-card);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;
 padding:.7rem 1rem;font-size:.88rem;color:var(--ink-soft);margin:1rem 0}
 .hinweis p{margin:0 0 .5rem}.hinweis p:last-child{margin:0}
@@ -747,12 +749,14 @@ def baue_kapitel(aus, w, a, k, vorher, nachher, urls):
         brot.append((a["name"] or a["key"], abschnitt_pfad(w, a)))
     brot.append((kap_bez, None))
 
-    inhalt = ['<h1>%s' % esc(kap_bez if not k["titel_sa"] else "%s: %s" % (kap_bez, k["titel_sa"]))]
+    # Werk und Werkteil stehen ueber der Ueberschrift: "Kapitel 23" allein sagt
+    # weder Leserinnen noch Suchmaschinen etwas.
+    inhalt = ['<p class="kicker">%s%s</p>' % (
+        esc(w["titel"]), esc(" · " + a["name"]) if (mehrteilig(w) and a["name"]) else "")]
+    inhalt.append('<h1>%s' % esc(kap_bez if not k["titel_sa"] else "%s: %s" % (kap_bez, k["titel_sa"])))
     if k["titel_de"]:
         inhalt.append('<span class="sa">%s</span>' % esc(k["titel_de"]))
     inhalt.append("</h1>")
-    inhalt.append('<p class="unter">%s%s</p>' % (
-        esc(w["titel"]), esc(", " + a["name"]) if (mehrteilig(w) and a["name"]) else ""))
     if k["anmerkung"]:
         inhalt.append('<div class="hinweis">%s</div>' % "".join("<p>%s</p>" % esc(p) for p in k["anmerkung"]))
     if k["tabelle_html"]:
@@ -779,8 +783,18 @@ def baue_kapitel(aus, w, a, k, vorher, nachher, urls):
           "isPartOf": {"@type": "Book", "name": w["titel"], "url": SITE + werk_pfad(w)},
           "translator": {"@type": "Organization", "name": MARKE}}
 
+    # Der Titel traegt die Begriffe, nach denen tatsaechlich gesucht wird:
+    # Werk, Werkteil, Kapitelnummer und - wenn vorhanden - der Kapitelname.
+    titel_teile = [w["titel"]]
+    if mehrteilig(w) and a["name"]:
+        titel_teile.append(a["name"])
+    titel_teile.append(kap_bez)
+    seiten_titel = ", ".join(titel_teile)
+    kap_name = k["titel_sa"] or k["titel_de"]
+    if kap_name:
+        seiten_titel += ": %s" % kap_name
     schreiben(aus, pfad, seite(
-        titel="%s – %s | %s" % (kap_bez, w["titel"], MARKE),
+        titel="%s – %s" % (seiten_titel, MARKE),
         beschreibung=beschreibung, kanonisch=pfad, inhalt="\n".join(inhalt),
         brotkrumen=brot, ld=ld))
     urls.append((pfad, 0.6))
@@ -1091,12 +1105,35 @@ Der <a href="/stand.html">Stand der Übersetzungen</a> zeigt offen, was fertig i
 
 
 def baue_sitemap(aus, urls):
-    eintraege = "".join('<url><loc>%s%s</loc><priority>%.1f</priority></url>' % (SITE, p, prio)
-                        for p, prio in urls)
+    """Eine Sitemap je Regal plus ein Sitemap-Index. Das haelt die einzelnen
+    Dateien klein und macht in der Search Console sichtbar, welcher Teil der
+    Bibliothek indexiert ist und welcher nicht."""
+    regal_slugs = {sl for _, sl, _ in REGALE}
+    gruppen = {}
+    for pfad, prio in urls:
+        erstes = pfad.strip("/").split("/")[0] if pfad != "/" else ""
+        gruppe = erstes if erstes in regal_slugs else "seiten"
+        gruppen.setdefault(gruppe, []).append((pfad, prio))
+
+    heute = __import__("datetime").date.today().isoformat()
+    sitemaps = []
+    for gruppe in sorted(gruppen):
+        eintraege = "".join(
+            '<url><loc>%s%s</loc><priority>%.1f</priority></url>' % (SITE, pfad, prio)
+            for pfad, prio in gruppen[gruppe])
+        name = "/sitemaps/%s.xml" % gruppe
+        schreiben(aus, name,
+                  '<?xml version="1.0" encoding="UTF-8"?>\n'
+                  '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">%s</urlset>\n' % eintraege)
+        sitemaps.append((name, len(gruppen[gruppe])))
+
+    index = "".join('<sitemap><loc>%s%s</loc><lastmod>%s</lastmod></sitemap>' % (SITE, name, heute)
+                    for name, _ in sitemaps)
     schreiben(aus, "/sitemap.xml",
               '<?xml version="1.0" encoding="UTF-8"?>\n'
-              '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">%s</urlset>\n' % eintraege)
+              '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">%s</sitemapindex>\n' % index)
     schreiben(aus, "/robots.txt", "User-agent: *\nAllow: /\n\nSitemap: %s/sitemap.xml\n" % SITE)
+    print("Sitemaps: %s" % ", ".join("%s (%d)" % (n.split("/")[-1], z) for n, z in sitemaps))
 
 
 # ================================================================ Leseansicht (die bisherigen interaktiven Apps)
