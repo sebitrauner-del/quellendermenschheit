@@ -133,16 +133,42 @@ def hochladen(nachricht):
     c = call("/git/commits", {"message": nachricht, "tree": baum, "parents": [eltern]}, tok=tok)
     call("/git/refs/heads/main", {"sha": c["sha"], "force": False}, methode="PATCH", tok=tok)
     print("Commit:", c["sha"])
-    print("GitHub Pages baut jetzt.")
+    return c["sha"]
+
+
+def auf_pages_warten(commit_sha, tok=None, minuten=15):
+    """Wartet, bis GENAU dieser Commit von GitHub Pages ausgeliefert ist.
+
+    Wichtig: /pages/builds/latest liefert kurz nach dem Push noch den vorigen
+    Build mit Status 'built'. Wer nur auf den Status schaut, haelt den alten
+    Stand fuer den neuen."""
+    tok = tok or token()
+    kurz = commit_sha[:8]
+    print("Warte auf den Pages-Build für %s ..." % kurz)
+    for _ in range(int(minuten * 60 / 15)):
+        b = call("/pages/builds/latest", tok=tok)
+        if (b.get("commit") or "").startswith(kurz) and b.get("status") in ("built", "errored"):
+            print("Pages-Build %s: %s" % (kurz, b["status"]))
+            if b["status"] == "errored":
+                print("Fehler:", (b.get("error") or {}).get("message"))
+                return False
+            return True
+        time.sleep(15)
+    print("Zeitüberschreitung - der Build läuft eventuell noch.")
+    return False
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--nur-bauen", action="store_true")
+    ap.add_argument("--ohne-warten", action="store_true",
+                    help="nicht auf den GitHub-Pages-Build warten")
     ap.add_argument("-m", "--message", default="Bibliothek neu gebaut")
     a = ap.parse_args()
     bauen()
     if a.nur_bauen:
         print("Nur gebaut - liegt in", AUS)
     else:
-        hochladen(a.message)
+        sha = hochladen(a.message)
+        if not a.ohne_warten:
+            auf_pages_warten(sha)

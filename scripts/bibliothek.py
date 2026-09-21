@@ -492,6 +492,11 @@ def werk_aus_markdown(pfad, *, regal=None, werk_slug=None, status=None):
 
 # ================================================================ Pfade
 
+# Wird zu Beginn von bauen() gefuellt: Regal -> Werke. Die Seitenleiste braucht
+# die Nachbarwerke eines Werks, ohne dass jede Bau-Funktion sie durchreichen muss.
+WERKE_NACH_REGAL = {}
+
+
 def regal_pfad(regal):
     return "/%s/" % REGAL_SLUG.get(regal, slug(regal))
 
@@ -604,12 +609,117 @@ text-align:center;color:var(--ink-faint);font-size:.85rem}
 footer.fuss a{color:var(--ink-faint)}
 #suchfeld{width:100%;padding:.65rem .9rem;font-size:1rem;font-family:var(--fb);
 border:1px solid var(--line);border-radius:9px;background:var(--bg-el);color:var(--ink)}
+/* Zweispaltiges Geruest mit Seitenleiste.
+   Der Inhalt steht im Quelltext VOR der Navigation; auf dem Bildschirm wird die
+   Navigation per Raster nach links gesetzt. Auf schmalen Geraeten rutscht sie
+   dadurch ans Seitenende, statt 300 Kapitellinks vor den Text zu schieben. */
+.rahmen{max-width:1260px;margin:0 auto;display:grid;grid-template-columns:272px minmax(0,1fr);
+gap:2.5rem;padding:0 1.25rem}
+.rahmen>aside.nav{grid-column:1;grid-row:1}
+.rahmen>.spalte{grid-column:2;grid-row:1;min-width:0}
+.rahmen>.spalte>main{padding-left:0;padding-right:0}
+aside.nav{position:sticky;top:1rem;align-self:start;max-height:calc(100vh - 2rem);
+overflow-y:auto;overscroll-behavior:contain;font-size:.86rem;padding:1.5rem 0 2rem}
+aside.nav .gruppe{margin:0 0 1.4rem}
+aside.nav .gruppe>h2{font-family:var(--fd);font-size:.76rem;font-weight:600;text-transform:uppercase;
+letter-spacing:.07em;color:var(--ink-faint);margin:0 0 .5rem;padding:0;border:0}
+aside.nav ul{list-style:none;margin:0;padding:0}
+aside.nav li{margin:0}
+aside.nav a{display:block;padding:.24rem .5rem;border-radius:6px;text-decoration:none;
+color:var(--ink-soft);line-height:1.35}
+aside.nav a:hover{background:var(--bg-card);color:var(--gold-s)}
+aside.nav a.aktiv{background:var(--bg-card);color:var(--gold-s);font-weight:600}
+aside.nav a .nr{display:inline-block;min-width:2.1em;color:var(--ink-faint);font-size:.9em}
+aside.nav .gruppe>h2 .anzahl{color:var(--ink-faint);font-weight:400;letter-spacing:0}
+aside.nav .raster{display:flex;flex-wrap:wrap;gap:2px}
+aside.nav .raster a{min-width:2.3em;text-align:center;padding:.2rem .25rem;font-variant-numeric:tabular-nums}
+aside.nav a.aktiv .nr{color:inherit}
+@media(max-width:980px){
+.rahmen{grid-template-columns:minmax(0,1fr);gap:0}
+.rahmen>aside.nav{grid-column:1;grid-row:2}
+.rahmen>.spalte{grid-column:1;grid-row:1}
+aside.nav{position:static;max-height:none;overflow:visible;border-top:1px solid var(--line);margin-top:2rem}
+}
 """
 
 
 # ================================================================ Seitengeruest
 
 MARKE = "Quellen der Menschheit"
+
+# Rollt die Seitenleiste so, dass der aktuelle Eintrag sichtbar ist - aber nur,
+# wenn sie ueberhaupt eine eigene Bildlaufleiste hat (also am Rechner, nicht
+# am Telefon, wo sie am Seitenende steht).
+NAV_SKRIPT = ('<script>(function(){var a=document.getElementById("nav-aktuell"),'
+              's=document.querySelector("aside.nav");if(a&&s&&s.scrollHeight>s.clientHeight+8)'
+              '{s.scrollTop=a.offsetTop-s.clientHeight/2;}})();</script>')
+
+
+def nav_gruppe(titel, eintraege, aktuell=None):
+    """eintraege: Liste von (nummer_oder_leer, beschriftung, adresse)."""
+    if not eintraege:
+        return ""
+    zeilen = []
+    for nummer, label, href in eintraege:
+        zeilen.append('<li><a href="%s"%s>%s%s</a></li>' % (
+            href,
+            ' class="aktiv"' if href == aktuell else "",
+            '<span class="nr">%s</span>' % esc(nummer) if nummer not in (None, "") else "",
+            esc(label)))
+    return '<div class="gruppe"><h2>%s</h2><ul>%s</ul></div>' % (esc(titel), "".join(zeilen))
+
+
+def anker_setzen(leiste):
+    """Markiert den TIEFSTEN aktiven Eintrag als Sprungziel. Aktiv sind mehrere
+    (Regal, Werk, Werkteil, Kapitel) - anrollen soll die Leiste aber zum Kapitel."""
+    i = leiste.rfind('class="aktiv"')
+    return leiste if i == -1 else leiste[:i] + 'id="nav-aktuell" ' + leiste[i:]
+
+
+def nav_regale(aktuell=None):
+    return nav_gruppe("Bibliothek", [("", name, regal_pfad(name)) for name, _, _ in REGALE], aktuell)
+
+
+def nav_werke(regal, werke, aktuell=None):
+    eintraege = [("", w["titel"], werk_pfad(w)) for w in sorted(werke, key=lambda x: x["titel"])]
+    return nav_gruppe(regal, eintraege, aktuell)
+
+
+def nav_teile(w, aktuell=None):
+    if not mehrteilig(w):
+        return ""
+    return nav_gruppe(w["titel"], [("", a["name"] or a["key"], abschnitt_pfad(w, a))
+                                   for a in w["abschnitte"]], aktuell)
+
+
+# Ab dieser Kapitelzahl wird statt einer Titelliste ein Nummernraster gezeigt:
+# 299 Zeilen mit Titeln sind weder ueberschaubar noch leichtgewichtig, 299
+# Nummern nebeneinander dagegen schon.
+RASTER_AB = 60
+
+
+def nav_kapitel(w, a, aktuell=None):
+    if not a["kapitel"]:
+        return ""
+    titel = (a["name"] or w["titel"]) if mehrteilig(w) else w["titel"]
+
+    if len(a["kapitel"]) > RASTER_AB:
+        zellen = []
+        for k in a["kapitel"]:
+            href = kapitel_pfad(w, a, k)
+            ist = (href == aktuell)
+            zellen.append('<a href="%s"%s>%s</a>' % (
+                href, ' class="aktiv"' if ist else "", esc(k["num"])))
+        return ('<div class="gruppe"><h2>%s <span class="anzahl">%d</span></h2>'
+                '<div class="raster">%s</div></div>' % (esc(titel), len(a["kapitel"]), "".join(zellen)))
+
+    eintraege = []
+    for k in a["kapitel"]:
+        name = k["titel_sa"] or k["titel_de"] or ""
+        if len(name) > 42:
+            name = name[:41] + "…"
+        eintraege.append((k["num"], name, kapitel_pfad(w, a, k)))
+    return nav_gruppe(titel, eintraege, aktuell)
 SCHRIFTEN = ('<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
              '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?'
              'family=Spectral:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@400;600;700&display=swap">')
@@ -625,7 +735,8 @@ def _brot_ld(brotkrumen):
     return {"@context": "https://schema.org", "@type": "BreadcrumbList", "itemListElement": eintraege}
 
 
-def seite(*, titel, beschreibung, kanonisch, inhalt, brotkrumen=(), ld=None, kopf_extra=""):
+def seite(*, titel, beschreibung, kanonisch, inhalt, brotkrumen=(), ld=None, kopf_extra="",
+          seitenleiste=""):
     brot = ""
     if brotkrumen:
         teile = []
@@ -668,10 +779,11 @@ def seite(*, titel, beschreibung, kanonisch, inhalt, brotkrumen=(), ld=None, kop
   <a class="marke" href="/">%(marke)s</a>
   <nav><a href="/">Bibliothek</a><a href="/suche.html">Suche</a><a href="/ueber.html">Über</a></nav>
 </div></header>
-%(brot)s
+%(rahmen_auf)s%(brot)s
 <main>
 %(inhalt)s
 </main>
+%(rahmen_zu)s
 <footer class="fuss">
   <p><a href="/">%(marke)s</a> · eigenständige deutsche Übersetzungen klassischer Sanskrit-Literatur.<br>
   Alle Übersetzungen sind gemeinfrei und werden fortlaufend erweitert.</p>
@@ -682,6 +794,9 @@ def seite(*, titel, beschreibung, kanonisch, inhalt, brotkrumen=(), ld=None, kop
         "titel": esc(titel), "besch": esc(beschreibung), "kanon": SITE + kanonisch,
         "otitel": esc(titel.split(" | ")[0]), "marke": MARKE, "schriften": SCHRIFTEN,
         "ld": ld_html, "extra": kopf_extra, "brot": brot, "inhalt": inhalt,
+        "rahmen_auf": '<div class="rahmen"><div class="spalte">' if seitenleiste else "",
+        "rahmen_zu": ("</div><aside class=\"nav\">%s</aside></div>%s" % (seitenleiste, NAV_SKRIPT))
+                     if seitenleiste else "",
     }
 
 
@@ -798,10 +913,14 @@ def baue_kapitel(aus, w, a, k, vorher, nachher, urls):
     kap_name = k["titel_sa"] or k["titel_de"]
     if kap_name:
         seiten_titel += ": %s" % kap_name
+    leiste = anker_setzen(nav_regale(regal_pfad(w["regal"]))
+              + nav_werke(w["regal"], WERKE_NACH_REGAL.get(w["regal"], [w]), werk_pfad(w))
+              + nav_teile(w, abschnitt_pfad(w, a))
+              + nav_kapitel(w, a, pfad))
     schreiben(aus, pfad, seite(
         titel="%s – %s" % (seiten_titel, MARKE),
         beschreibung=beschreibung, kanonisch=pfad, inhalt="\n".join(inhalt),
-        brotkrumen=brot, ld=ld))
+        brotkrumen=brot, ld=ld, seitenleiste=leiste))
     urls.append((pfad, 0.6))
 
 
@@ -827,11 +946,14 @@ def baue_abschnitt(aus, w, a, urls):
     if a["beschreibung"]:
         inhalt.append('<div class="hinweis"><p>%s</p></div>' % esc(a["beschreibung"]))
     inhalt.append(_kapitel_liste(w, a))
+    leiste = anker_setzen(nav_regale(regal_pfad(w["regal"]))
+              + nav_werke(w["regal"], WERKE_NACH_REGAL.get(w["regal"], [w]), werk_pfad(w))
+              + nav_teile(w, pfad))
     schreiben(aus, pfad + "index.html", seite(
         titel="%s – %s | %s" % (a["name"] or a["key"], w["titel"], MARKE),
         beschreibung="%s, %s: %d %s in deutscher Übersetzung. %s" % (
             w["titel"], a["name"], len(a["kapitel"]), w["kapitel_label"], a["beschreibung"]),
-        kanonisch=pfad, inhalt="\n".join(inhalt), brotkrumen=brot))
+        kanonisch=pfad, inhalt="\n".join(inhalt), brotkrumen=brot, seitenleiste=leiste))
     urls.append((pfad, 0.7))
 
 
@@ -890,11 +1012,13 @@ def baue_werk(aus, w, urls):
     if w.get("autor"):
         ld["author"] = {"@type": "Person", "name": w["autor"]}
 
+    leiste = anker_setzen(nav_regale(regal_pfad(w["regal"]))
+              + nav_werke(w["regal"], WERKE_NACH_REGAL.get(w["regal"], [w]), pfad))
     schreiben(aus, pfad + "index.html", seite(
         titel="%s – deutsche Übersetzung | %s" % (w["titel"], MARKE),
         beschreibung="%s – vollständige deutsche Übersetzung, %s für %s, mit Sanskrit im Original. %s" % (
             w["titel"], w["einheit_label"], w["einheit_label"], w["blurb"] or w["untertitel"] or ""),
-        kanonisch=pfad, inhalt="\n".join(inhalt), brotkrumen=brot, ld=ld))
+        kanonisch=pfad, inhalt="\n".join(inhalt), brotkrumen=brot, ld=ld, seitenleiste=leiste))
     urls.append((pfad, 0.8))
 
     if w["glossar"]:
@@ -916,7 +1040,8 @@ def baue_werk(aus, w, urls):
             kanonisch=gpfad,
             inhalt='<h1>%s</h1><p class="unter">%s · %d Begriffe</p><dl class="glossar">%s</dl>' % (
                 esc(w["glossar_titel"]), esc(w["titel"]), len(eintraege), "".join(eintraege)),
-            brotkrumen=[(MARKE, "/"), (w["regal"], regal_pfad(w["regal"])), (w["titel"], pfad), (w["glossar_titel"], None)]))
+            brotkrumen=[(MARKE, "/"), (w["regal"], regal_pfad(w["regal"])), (w["titel"], pfad), (w["glossar_titel"], None)],
+            seitenleiste=leiste))
         urls.append((gpfad, 0.5))
 
 
@@ -943,7 +1068,8 @@ def baue_regal(aus, regal, werke, urls):
         beschreibung="%s in eigenständiger deutscher Übersetzung: %d Werke, zweisprachig mit Sanskrit. %s" % (
             regal, len(werke), REGAL_BESCHREIBUNG.get(regal, "")),
         kanonisch=pfad, inhalt="\n".join(inhalt),
-        brotkrumen=[(MARKE, "/"), (regal, None)]))
+        brotkrumen=[(MARKE, "/"), (regal, None)],
+        seitenleiste=anker_setzen(nav_regale(pfad))))
     urls.append((pfad, 0.9))
 
 
@@ -1244,6 +1370,8 @@ def bauen(raw_dir, aus, md_quellen=()):
     nach_regal = {}
     for w in werke:
         nach_regal.setdefault(w["regal"], []).append(w)
+    WERKE_NACH_REGAL.clear()
+    WERKE_NACH_REGAL.update(nach_regal)
 
     urls = []
     geschrieben = set()
