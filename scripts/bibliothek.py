@@ -142,6 +142,15 @@ _REGAL_ALIAS = {
 # seine weiteren Namen (unter denen ja auch gesucht wird).
 VERWEISE = [
     {
+        "regal": "Upaniṣaden", "slug": "chandogya",
+        "titel": "Chāndogya-Upaniṣad",
+        "weitere_namen": ["Chandogya Upanishad"],
+        "ziel_regal": "Āraṇyakas", "ziel_slug": "chandogya",
+        "erklaerung": ("Die Chāndogya-Upaniṣad ist als Teil des Chāndogya-Brāhmaṇa überliefert "
+                       "und steht deshalb im Regal der Āraṇyakas – dort vollständig in acht "
+                       "Adhyāyas, mit der Lehre „tat tvam asi“ im sechsten."),
+    },
+    {
         "regal": "Āraṇyakas", "slug": "jaiminiya",
         "titel": "Talavakāra-Āraṇyaka",
         "weitere_namen": ["Talavakāra-Āraṇyaka", "Jaiminīya-Āraṇyaka"],
@@ -154,6 +163,103 @@ VERWEISE = [
 ]
 
 VERWEISE_NACH_REGAL = {}
+
+# Einzelne Werke brauchen eine Richtigstellung oder einen deutlichen Hinweis
+# darauf, was die Ausgabe wirklich enthaelt. Ohne das stehen sie im Regal wie
+# vollstaendige Textausgaben neben echten.
+WERK_ANPASSUNGEN = {
+    ("Āraṇyakas", "chandogya"): {
+        "titel": "Chāndogya-Upaniṣad",
+        "weitere_namen": ["Chāndogya-Āraṇyaka"],
+        "hinweis": ("Diese Ausgabe enthält die Chāndogya-Upaniṣad, also die Prapāṭhakas 3–10 des "
+                    "Chāndogya-Brāhmaṇa. Das Chāndogya-Āraṇyaka im engeren Sinn – die beiden "
+                    "vorausgehenden, rein rituellen Prapāṭhakas (Mantra-Brāhmaṇa) – liegt in der "
+                    "verwendeten Quelle nicht vor und fehlt hier. Im fünften Adhyāya sind mehrere "
+                    "der formelhaft wiederholten Khaṇḍas (Fünf-Feuer-Lehre, die sechs Hausväter) "
+                    "zusammengefasst; der Inhalt ist beschrieben, der Sanskrit-Text dieser "
+                    "Einzelkhaṇḍas steht nicht eigens da."),
+    },
+    ("Āraṇyakas", "katha"): {
+        "hinweis": ("Dies ist keine fortlaufende Textausgabe. Grundlage ist Leopold von Schroeders "
+                    "Handschriftenstudie „Die Tübinger Kaṭha-Handschriften und ihre Beziehung zum "
+                    "Taittirīya-Āraṇyaka“ (Wien 1898) über stark fragmentierte Birkenrinden-"
+                    "Handschriften der Kaṭha-Schule. Der Sanskrit-Text wird dort überwiegend nur "
+                    "mit Anfangs- und Schlussworten zitiert, mit Verweis auf die Parallelstelle im "
+                    "Taittirīya-Āraṇyaka. Das Kāṭha-Āraṇyaka zählt auch nicht zum traditionellen "
+                    "Achterkanon."),
+    },
+}
+
+
+# Mehrere beruehmte Upaniṣaden sind keine eigenstaendigen Werke, sondern Teile
+# groesserer Texte. Sie sind damit uebersetzt, aber unauffindbar: Wer die
+# Īśa-Upaniṣad sucht, sucht nicht nach "Vājasaneyi-Saṃhitā, Adhyāya 40".
+# Jede Fundstelle bekommt deshalb eine eigene kleine Seite, die erklaert, wo der
+# Text steht, und direkt auf die Kapitel verlinkt.
+FUNDSTELLEN = [
+    {"regal": "Upaniṣaden", "slug": "isha", "titel": "Īśa-Upaniṣad",
+     "weitere_namen": ["Īśāvāsya-Upaniṣad", "Isha Upanishad"],
+     "ziel_regal": "Veda-Saṃhitās", "ziel_slug": "yv", "kapitel": [40],
+     "erklaerung": ("Die Īśa-Upaniṣad ist kein eigenes Werk, sondern der vierzigste und letzte "
+                    "Adhyāya der Vājasaneyi-Saṃhitā des Śukla-Yajurveda. Sie beginnt mit den "
+                    "Worten „īśā vāsyam idaṃ sarvam“ und ist damit die einzige Upaniṣad, die "
+                    "unmittelbar zu einer Saṃhitā gehört.")},
+    {"regal": "Upaniṣaden", "slug": "kena", "titel": "Kena-Upaniṣad",
+     "weitere_namen": ["Talavakāra-Upaniṣad", "Kena Upanishad"],
+     "ziel_regal": "Brāhmaṇas", "ziel_slug": "jub", "kapitel": [4],
+     "erklaerung": ("Die Kena- oder Talavakāra-Upaniṣad steht im vierten Adhyāya des "
+                    "Jaiminīya-Upaniṣad-Brāhmaṇa, zusammen mit dem Rangstreit der Götter und "
+                    "der Sāvitrī-Lehre.")},
+    {"regal": "Upaniṣaden", "slug": "aitareya", "titel": "Aitareya-Upaniṣad",
+     "weitere_namen": ["Aitareya Upanishad"],
+     "ziel_regal": "Āraṇyakas", "ziel_slug": "aitareya", "kapitel": [9, 10, 11],
+     "erklaerung": ("Die Aitareya-Upaniṣad bildet die Adhyāyas 4 bis 6 des zweiten Buches des "
+                    "Aitareya-Āraṇyaka (AiĀ 2,4–2,6). Sie beginnt mit „ātmā vā idam eka evāgra "
+                    "āsīt“ und enthält im dritten Kapitel den Mahāvākya-Satz „prajñānaṃ brahma“.")},
+    {"regal": "Upaniṣaden", "slug": "kausitaki", "titel": "Kauṣītaki-Upaniṣad",
+     "weitere_namen": ["Kauṣītaki-Brāhmaṇa-Upaniṣad", "Kaushitaki Upanishad"],
+     "ziel_regal": "Āraṇyakas", "ziel_slug": "kausitaki", "kapitel": [3, 4, 5, 6],
+     "erklaerung": ("Die Kauṣītaki-Upaniṣad umfasst die Adhyāyas 3 bis 6 des Kauṣītaki- "
+                    "(Śāṅkhāyana-)Āraṇyaka. Sie beginnt mit dem Gespräch des Citra Gāṅgyāyani "
+                    "über den Weg der Seele nach dem Tod und endet mit Gārgya Bālāki und König "
+                    "Ajātaśatru.")},
+    {"regal": "Upaniṣaden", "slug": "taittiriya", "titel": "Taittirīya-Upaniṣad",
+     "weitere_namen": ["Taittiriya Upanishad"],
+     "ziel_regal": "Āraṇyakas", "ziel_slug": "taittiriya", "kapitel": [7, 8, 9],
+     "erklaerung": ("Die Taittirīya-Upaniṣad besteht aus den Prapāṭhakas 7 bis 9 des "
+                    "Taittirīya-Āraṇyaka: Śīkṣāvallī, Brahmānandavallī mit der Pañcakośa-Lehre "
+                    "von den fünf Hüllen des Selbst, und Bhṛguvallī mit dem Bhṛgu-Varuṇa-Dialog.")},
+    {"regal": "Upaniṣaden", "slug": "mahanarayana", "titel": "Mahānārāyaṇa-Upaniṣad",
+     "weitere_namen": ["Nārāyaṇa-Upaniṣad", "Mahanarayana Upanishad"],
+     "ziel_regal": "Āraṇyakas", "ziel_slug": "taittiriya", "kapitel": [10],
+     "erklaerung": ("Die Mahānārāyaṇa- oder Nārāyaṇa-Upaniṣad ist der zehnte und letzte "
+                    "Prapāṭhaka des Taittirīya-Āraṇyaka, mit dem Nārāyaṇa-Anuvāka und den "
+                    "Pañcabrahma-Mantras.")},
+    {"regal": "Upaniṣaden", "slug": "maitri", "titel": "Maitrī-Upaniṣad",
+     "weitere_namen": ["Maitrāyaṇīya-Upaniṣad", "Maitri Upanishad"],
+     "ziel_regal": "Āraṇyakas", "ziel_slug": "maitrayaniya", "kapitel": None,
+     "erklaerung": ("Die Maitrī- oder Maitrāyaṇīya-Upaniṣad ist mit dem Maitrāyaṇīya-Āraṇyaka "
+                    "überliefert; der Schlusskolophon des Werkes nennt es selbst "
+                    "„maitrāyaṇyupaniṣad“. Der sechste Prapāṭhaka ist der mit Abstand "
+                    "umfangreichste und enthält die Sāṃkhya-nahen Lehrstücke.")},
+]
+
+FUNDSTELLEN_NACH_REGAL = {}
+
+
+def werk_anpassen(w):
+    a = WERK_ANPASSUNGEN.get((w["regal"], w["slug"]))
+    if not a:
+        return w
+    if a.get("titel"):
+        w["titel"] = a["titel"]
+    for n in a.get("weitere_namen", []):
+        w.setdefault("weitere_namen", [])
+        if n not in w["weitere_namen"]:
+            w["weitere_namen"].append(n)
+    if a.get("hinweis"):
+        w["hinweis"] = a["hinweis"]
+    return w
 
 
 def regal_von(rohwert, fallback="Weitere Werke"):
@@ -250,6 +356,25 @@ def _buch_laden(roh_pfad, script_id="data-book"):
     return inhalt, buch
 
 
+# In den Rohdaten stehen in Kapiteltiteln teilweise Arbeitsvermerke der
+# Uebersetzung - "(ārabdhaḥ)" = begonnen, "(samāptaḥ)" = abgeschlossen. Sie
+# gehoeren nicht zum Werktitel und bleiben teils stehen, wenn ein Kapitel fertig
+# wird. Auf der Seite haben sie nichts verloren.
+_VERMERK_WORT = r"(?:ārabdhaḥ|arabdhah|samāptaḥ|samaptah)"
+# ganz allein in Klammern: "(samāptaḥ)"
+_VERMERK_ALLEIN = re.compile(r"\s*\(" + _VERMERK_WORT + r"\)")
+# als Anhaengsel in groesseren Klammern: "(anuvāka 1–32, samāptaḥ)"
+_VERMERK_ANHANG = re.compile(r"[,;]\s*" + _VERMERK_WORT + r"(?=\s*\))")
+
+
+def titel_bereinigen(titel):
+    if not titel:
+        return titel
+    t = _VERMERK_ANHANG.sub("", str(titel))
+    t = _VERMERK_ALLEIN.sub("", t)
+    return re.sub(r"\s{2,}", " ", t).replace(" ·  ·", " ·").strip(" ·")
+
+
 def _abschnitte_bauen(divisions, werk_slug):
     """Normalisiert die 'divisions' eines Werks zu Abschnitten mit Kapiteln."""
     raus = []
@@ -268,8 +393,8 @@ def _abschnitte_bauen(divisions, werk_slug):
             kapitel.append({
                 "num": num,
                 "slug": eindeutig(slug(basis, "kapitel"), kap_slugs),
-                "titel_sa": ch.get("title_sa") or "",
-                "titel_de": ch.get("title_de") or "",
+                "titel_sa": titel_bereinigen(ch.get("title_sa") or ""),
+                "titel_de": titel_bereinigen(ch.get("title_de") or ""),
                 "anmerkung": absaetze(ch.get("note") or ch.get("note_de")),
                 "tabelle_html": ch.get("table_html") or "",
                 "einheiten": [_einheit_normalisieren(u) for u in (ch.get("units") or [])],
@@ -677,6 +802,8 @@ ul.liste li .titel a:hover{color:var(--gold-s)}
 ul.liste li .titel .de{display:block;font-family:var(--fb);font-size:.85rem;color:var(--ink-soft);font-style:normal}
 ul.liste li .stand{margin-left:auto;font-size:.76rem;color:var(--ink-faint);white-space:nowrap}
 ul.liste li .stand.offen{font-style:italic}
+ul.liste li .stand .quelle{display:block;font-style:normal;font-size:.72rem;
+color:var(--ink-faint);max-width:26rem;white-space:normal;margin-top:.15rem}
 .regalkarte{display:block;padding:1rem 1.1rem;border:1px solid var(--line);border-radius:12px;
 background:var(--bg-card);text-decoration:none;color:var(--ink);margin:0 0 .8rem}
 .regalkarte:hover{border-color:var(--gold)}
@@ -1068,6 +1195,9 @@ def baue_werk(aus, w, urls):
         "{:,}".format(anzahl_einh).replace(",", "."), esc(mehrzahl(w["einheit_label"], anzahl_einh))))
     if w.get("umfang_hinweis"):
         inhalt.append('<div class="hinweis"><p>Umfang dieser Ausgabe: %s</p></div>' % esc(w["umfang_hinweis"]))
+    if w.get("hinweis"):
+        inhalt.append('<div class="hinweis"><p><strong>Zum Umfang dieser Ausgabe.</strong> %s</p></div>'
+                      % esc(w["hinweis"]))
     knoepfe = []
     if w.get("leseansicht"):
         knoepfe.append('<a class="knopf" href="%s">Interaktive Leseansicht</a>' % w["leseansicht"])
@@ -1159,6 +1289,20 @@ def baue_regal(aus, regal, werke, urls):
               '<p class="unter">%s</p>' % esc(REGAL_BESCHREIBUNG.get(regal, "")),
               '<p class="unter">%d Werke · %s übersetzte Abschnitte</p>' % (len(werke), "{:,}".format(gesamt).replace(",", ".")),
               '<ul class="liste">%s</ul>' % "".join(zeilen)]
+    fund = FUNDSTELLEN_NACH_REGAL.get(regal, [])
+    if fund:
+        inhalt.append("<h2>In anderen Werken überliefert</h2>")
+        inhalt.append('<p class="unter">Diese Texte sind keine eigenständigen Werke, sondern Teile '
+                      'größerer Sammlungen – übersetzt sind sie dort.</p>')
+        zf = []
+        for f in fund:
+            zf.append('<li><span class="nr"></span><span class="titel"><a href="%s">%s</a>'
+                      '<span class="de">in: %s</span></span><span class="stand">%s %s</span></li>'
+                      % (f["pfad"], esc(f["titel"]), esc(f["ziel"]["titel"]),
+                         "{:,}".format(f["einheiten"]).replace(",", "."),
+                         esc(mehrzahl(f["ziel"]["einheit_label"], f["einheiten"]))))
+        inhalt.append('<ul class="liste">%s</ul>' % "".join(zf))
+
     for v in VERWEISE_NACH_REGAL.get(regal, []):
         ziel = v["ziel"]
         inhalt.append('<h2>%s</h2>' % esc(v["titel"]))
@@ -1211,6 +1355,70 @@ def baue_startseite(aus, nach_regal, urls):
     urls.append(("/", 1.0))
 
 
+def baue_fundstelle(aus, f, nach_schluessel, urls):
+    """Kleine Seite für einen Text, der in einem anderen Werk steckt."""
+    ziel = nach_schluessel.get((f["ziel_regal"], f["ziel_slug"]))
+    if ziel is None:
+        print("   Fundstelle ohne Ziel: %s" % f["titel"])
+        return None
+    kap = alle_kapitel(ziel)
+    gewuenscht = f.get("kapitel")
+    treffer = [(a, k) for a, k in kap if gewuenscht is None or k["num"] in gewuenscht]
+    if not treffer:
+        print("   Fundstelle %s: Zielkapitel %s nicht gefunden" % (f["titel"], gewuenscht))
+        return None
+
+    pfad = "/%s/%s/" % (REGAL_SLUG.get(f["regal"], slug(f["regal"])), f["slug"])
+    einheiten = sum(len(k["einheiten"]) for _, k in treffer)
+
+    zeilen = []
+    for a, k in treffer:
+        bez = "%s %s" % (ziel["kapitel_label"], k["num"])
+        name = k["titel_sa"] or k["titel_de"] or ""
+        de = '<span class="de">%s</span>' % esc(k["titel_de"]) if (k["titel_de"] and k["titel_sa"]) else ""
+        zeilen.append('<li><span class="nr">%s</span><span class="titel">'
+                      '<a href="%s">%s</a>%s</span><span class="stand">%d %s</span></li>'
+                      % (esc(k["num"]), kapitel_pfad(ziel, a, k), esc(name or bez), de,
+                         len(k["einheiten"]), esc(mehrzahl(ziel["einheit_label"], len(k["einheiten"])))))
+
+    inhalt = ['<p class="kicker">%s</p>' % esc(f["regal"]),
+              '<h1>%s</h1>' % esc(f["titel"])]
+    if f.get("weitere_namen"):
+        inhalt.append('<p class="unter">Auch bekannt als %s</p>' % esc(" · ".join(f["weitere_namen"])))
+    inhalt.append('<div class="hinweis"><p>%s</p></div>' % esc(f["erklaerung"]))
+    inhalt.append('<p class="unter">Überliefert in: <a href="%s">%s</a> · %d %s · %s %s</p>'
+                  % (werk_pfad(ziel), esc(ziel["titel"]), len(treffer),
+                     esc(mehrzahl(ziel["kapitel_label"], len(treffer))),
+                     "{:,}".format(einheiten).replace(",", "."),
+                     esc(mehrzahl(ziel["einheit_label"], einheiten))))
+    inhalt.append("<h2>Der Text</h2>")
+    inhalt.append('<ul class="liste">%s</ul>' % "".join(zeilen))
+    inhalt.append('<p><a class="knopf" href="%s">Das ganze Werk: %s</a></p>'
+                  % (werk_pfad(ziel), esc(ziel["titel"])))
+
+    ld = {"@context": "https://schema.org", "@type": "CreativeWork",
+          "name": f["titel"], "alternateName": f.get("weitere_namen", []),
+          "inLanguage": "de", "url": SITE + pfad,
+          "description": f["erklaerung"][:300],
+          "isPartOf": {"@type": "Book", "name": ziel["titel"], "url": SITE + werk_pfad(ziel)},
+          "translator": {"@type": "Organization", "name": MARKE}}
+
+    leiste = anker_setzen(nav_regale(regal_pfad(f["regal"]))
+                          + nav_werke(f["regal"], WERKE_NACH_REGAL.get(f["regal"], []), pfad)
+                          + nav_kapitel(ziel, treffer[0][0]))
+    schreiben(aus, pfad + "index.html", seite(
+        titel="%s – deutsche Übersetzung | %s" % (f["titel"], MARKE),
+        beschreibung="%s %s Vollständige deutsche Übersetzung mit Sanskrit im Original."
+                     % (f["titel"], f["erklaerung"]),
+        kanonisch=pfad, inhalt="\n".join(inhalt),
+        brotkrumen=[(MARKE, "/"), (f["regal"], regal_pfad(f["regal"])), (f["titel"], None)],
+        ld=ld, seitenleiste=leiste))
+    urls.append((pfad, 0.8))
+    eintrag = dict(f)
+    eintrag.update({"pfad": pfad, "ziel": ziel, "kapitel_treffer": treffer, "einheiten": einheiten})
+    return eintrag
+
+
 def baue_suche(aus, werke, urls):
     index = []
     for w in werke:
@@ -1225,6 +1433,11 @@ def baue_suche(aus, werke, urls):
             titel = k["titel_sa"] or k["titel_de"] or bez
             index.append({"t": "%s – %s" % (bez, titel), "u": kapitel_pfad(w, a, k),
                           "r": w["regal"], "k": w["titel"] + ((", " + a["name"]) if (mehrteilig(w) and a["name"]) else "")})
+    for eintraege in FUNDSTELLEN_NACH_REGAL.values():
+        for f in eintraege:
+            for name in [f["titel"]] + f.get("weitere_namen", []):
+                index.append({"t": name, "u": f["pfad"], "r": f["regal"],
+                              "k": "überliefert in " + f["ziel"]["titel"]})
     schreiben(aus, "/suchindex.json", json.dumps(index, ensure_ascii=False, separators=(",", ":")))
 
     skript = """
@@ -1249,6 +1462,80 @@ const p=new URLSearchParams(location.search).get('q');if(p){F.value=p}
     urls.append(("/suche.html", 0.4))
 
 
+# Soll-Zahlen aus den Standardausgaben. Ohne sie erkennt die Pruefung nur ganz
+# leere Stellen - ein Werk, das 5 von 25 Kapiteln liefert, sieht sonst fertig aus.
+# "kapitel": erwartete Kapitelzahl des ganzen Werks
+# "je_abschnitt": erwartete Kapitelzahl je Werkteil
+# "je_kapitel": erwartete Abschnittszahl je Kapitel
+SOLL = {
+    ("Epen", "mahabharata"): {
+        "quelle": "Kritische Ausgabe (Poona); bei allen fertigen Parvas stimmen die Zahlen überein",
+        "je_abschnitt": {
+            "adi": 225, "sabha": 72, "vana": 299, "virata": 67, "udyoga": 197,
+            "bhishma": 117, "drona": 173, "karna": 69, "shalya": 64, "sauptika": 18,
+            "stri": 27, "shanti": 353, "anushasana": 154, "ashvamedhika": 96,
+            "ashramavasika": 47, "mausala": 9, "mahaprasthanika": 3, "svargarohana": 5,
+        }},
+    ("Āraṇyakas", "aitareya"):     {"kapitel": 18, "quelle": "5 Āraṇyakas mit 5+7+2+1+3 Adhyāyas"},
+    ("Āraṇyakas", "kausitaki"):    {"kapitel": 15, "quelle": "15 Adhyāyas"},
+    ("Āraṇyakas", "maitrayaniya"): {"kapitel": 7,  "quelle": "7 Prapāṭhakas"},
+    ("Āraṇyakas", "taittiriya"):   {"kapitel": 10, "quelle": "10 Prapāṭhakas (Kapitel 11 ist der Ekāgnikāṇḍa-Anhang)"},
+    ("Āraṇyakas", "chandogya"): {
+        "kapitel": 8, "quelle": "8 Adhyāyas der Chāndogya-Upaniṣad",
+        "je_kapitel": {1: 13, 2: 24, 3: 19, 4: 17, 5: 24, 6: 16, 7: 26, 8: 15}},
+    ("Brāhmaṇas", "jub"):        {"kapitel": 4,  "quelle": "4 Adhyāyas"},
+    ("Brāhmaṇas", "aitareya"):   {"kapitel": 40, "quelle": "8 Pañcikās zu je 5 Adhyāyas"},
+    ("Brāhmaṇas", "pancavimsa"): {"kapitel": 25, "quelle": "25 Prapāṭhakas (daher „Pañcaviṃśa“)"},
+    ("Brāhmaṇas", "kausitaki"):  {"kapitel": 30, "quelle": "30 Adhyāyas"},
+    ("Brāhmaṇas", "satapatha"):  {"abschnitte": 14, "quelle": "14 Kāṇḍas; Kāṇḍa 14 steht als Bṛhad-Āraṇyaka und Bṛhadāraṇyaka-Upaniṣad in eigenen Einträgen"},
+    ("Veda-Saṃhitās", "yv"):     {"kapitel": 40, "quelle": "40 Adhyāyas"},
+}
+
+
+def soll_abgleich(w):
+    """Vergleicht den vorhandenen Umfang mit der Standardausgabe.
+    Liefert Meldungen; mehr Kapitel als erwartet ist kein Fehler, sondern
+    meist eine feinere Unterteilung."""
+    soll = SOLL.get((w["regal"], w["slug"]))
+    if not soll:
+        return []
+    meldungen = []
+    kap = alle_kapitel(w)
+
+    if soll.get("kapitel") and len(kap) < soll["kapitel"]:
+        meldungen.append("%d von %d %s vorhanden" % (
+            len(kap), soll["kapitel"], mehrzahl(w["kapitel_label"])))
+    if soll.get("abschnitte") and len(w["abschnitte"]) < soll["abschnitte"]:
+        meldungen.append("%d von %d %s vorhanden" % (
+            len(w["abschnitte"]), soll["abschnitte"], mehrzahl(w["abschnitt_label"])))
+
+    for a_slug, erwartet in (soll.get("je_abschnitt") or {}).items():
+        a = next((x for x in w["abschnitte"] if x["slug"] == a_slug), None)
+        ist = len(a["kapitel"]) if a else 0
+        if ist < erwartet:
+            meldungen.append("%s: %d von %d %s" % (
+                (a["name"] if a else a_slug), ist, erwartet, mehrzahl(w["kapitel_label"])))
+
+    for num, erwartet in (soll.get("je_kapitel") or {}).items():
+        k = next((k for _, k in kap if k["num"] == num), None)
+        if k is None:
+            meldungen.append("%s %s fehlt ganz" % (w["kapitel_label"], num))
+            continue
+        ist = len(k["einheiten"])
+        # Abschnitte duerfen mehrere Einheiten des Originals zusammenfassen; die
+        # Nummer sagt dann, wie weit sie reichen ("11-14", "24 (2.24)"). Der
+        # hoechste genannte Wert ist der erreichte Stand.
+        erreicht = 0
+        for u in k["einheiten"]:
+            for zahl in re.findall(r"\d+", str(u.get("n", ""))):
+                erreicht = max(erreicht, int(zahl))
+        if max(ist, erreicht) < erwartet:
+            meldungen.append("%s %s: %d von %d %s" % (
+                w["kapitel_label"], num, max(ist, erreicht), erwartet,
+                mehrzahl(w["einheit_label"])))
+    return meldungen
+
+
 def pruefe_vollstaendigkeit(werke):
     """Sucht die Stellen, an denen Text fehlt: ganz leere Werke, leere Werkteile
     (z.B. ein Parva ohne ein einziges Kapitel) und Kapitel ohne Verse."""
@@ -1257,13 +1544,15 @@ def pruefe_vollstaendigkeit(werke):
         kap = alle_kapitel(w)
         leere_teile = [a for a in w["abschnitte"] if not a["kapitel"]]
         leere_kapitel = [(a, k) for a, k in kap if not k["einheiten"]]
+        soll_meldungen = soll_abgleich(w)
         eintrag = {"werk": w, "leere_teile": leere_teile, "leere_kapitel": leere_kapitel,
-                   "teile_gesamt": len(w["abschnitte"]), "kapitel_gesamt": len(kap)}
+                   "teile_gesamt": len(w["abschnitte"]), "kapitel_gesamt": len(kap),
+                   "soll": soll_meldungen}
         if not kap:
             eintrag["art"] = "ohne Inhalt"
         elif len(leere_kapitel) == len(kap):
             eintrag["art"] = "noch nicht begonnen"
-        elif leere_kapitel or leere_teile:
+        elif leere_kapitel or leere_teile or soll_meldungen:
             eintrag["art"] = "teilweise übersetzt"
         else:
             continue
@@ -1277,6 +1566,8 @@ def luecken_text(l):
     if l["art"] in ("ohne Inhalt", "noch nicht begonnen"):
         return l["art"]
     teile = []
+    if l.get("soll"):
+        teile.append("; ".join(l["soll"]))
     if l["leere_teile"]:
         teile.append("%d von %d %s ohne ein einziges Kapitel"
                      % (len(l["leere_teile"]), l["teile_gesamt"], mehrzahl(w["abschnitt_label"])))
@@ -1308,6 +1599,9 @@ def baue_stand(aus, werke, luecken, urls):
                 stand = '<span class="stand">vollständig · %d %s</span>' % (len(kap), esc(w["kapitel_label"]))
             else:
                 stand = '<span class="stand offen">%s</span>' % esc(luecken_text(l))
+                q = (SOLL.get((w["regal"], w["slug"])) or {}).get("quelle")
+                if q and l.get("soll"):
+                    stand += '<span class="quelle">Zählung: %s</span>' % esc(q)
             zeilen.append('<li><span class="nr"></span><span class="titel"><a href="%s">%s</a></span>%s</li>'
                           % (werk_pfad(w), esc(w["titel"]), stand))
         teile.append('<ul class="liste">%s</ul>' % "".join(zeilen))
@@ -1519,6 +1813,7 @@ def bauen(raw_dir, aus, md_quellen=()):
                                        werk_slug=q.get("slug"), status=q.get("umfang")))
 
     werke = werke_entdoppeln(werke)
+    werke = [werk_anpassen(w) for w in werke]
     werke, verweise = verweise_aufloesen(werke)
     VERWEISE_NACH_REGAL.clear()
     for v in verweise:
@@ -1532,6 +1827,15 @@ def bauen(raw_dir, aus, md_quellen=()):
 
     urls = []
     geschrieben = set()
+    # Fundstellen zuerst: die Regalseiten listen sie mit auf.
+    nach_schluessel = {(w["regal"], w["slug"]): w for w in werke}
+    FUNDSTELLEN_NACH_REGAL.clear()
+    for f in FUNDSTELLEN:
+        eintrag = baue_fundstelle(aus, f, nach_schluessel, urls)
+        if eintrag:
+            FUNDSTELLEN_NACH_REGAL.setdefault(f["regal"], []).append(eintrag)
+            geschrieben.add(eintrag["pfad"] + "index.html")
+
     baue_startseite(aus, nach_regal, urls); geschrieben.add("/index.html")
     for regal in nach_regal:
         baue_regal(aus, regal, nach_regal[regal], urls)
@@ -1655,6 +1959,8 @@ def main():
         for l in teilweise:
             w = l["werk"]
             print("  TEILWEISE  %-18s %-34s %s" % (w["regal"][:18], w["titel"][:34], luecken_text(l)))
+            for m in l.get("soll", [])[:25]:
+                print("               Soll/Ist:   %s" % m)
             for teil in l["leere_teile"][:40]:
                 print("               fehlt ganz: %s" % (teil["name"] or teil["key"]))
         if nicht_begonnen:

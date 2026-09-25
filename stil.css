@@ -56,6 +56,8 @@ ul.liste li .titel a:hover{color:var(--gold-s)}
 ul.liste li .titel .de{display:block;font-family:var(--fb);font-size:.85rem;color:var(--ink-soft);font-style:normal}
 ul.liste li .stand{margin-left:auto;font-size:.76rem;color:var(--ink-faint);white-space:nowrap}
 ul.liste li .stand.offen{font-style:italic}
+ul.liste li .stand .quelle{display:block;font-style:normal;font-size:.72rem;
+color:var(--ink-faint);max-width:26rem;white-space:normal;margin-top:.15rem}
 .regalkarte{display:block;padding:1rem 1.1rem;border:1px solid var(--line);border-radius:12px;
 background:var(--bg-card);text-decoration:none;color:var(--ink);margin:0 0 .8rem}
 .regalkarte:hover{border-color:var(--gold)}
