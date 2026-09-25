@@ -18,7 +18,7 @@ frueher ganze Werke (bis 15 MB) in eine einzige Datei zu packen.
     /<regal>/<werk>/glossar.html        Glossar (wenn vorhanden)
     /leseansicht/<slug>.html            interaktive Leseansicht (die alten SPAs)
 """
-import re, json, base64, gzip, html, os, sys, unicodedata
+import re, json, base64, gzip, html, os, sys, shutil, unicodedata
 
 SITE = "https://quellendermenschheit.de"
 
@@ -161,6 +161,51 @@ def _einheit_normalisieren(u):
     return e
 
 
+def datenverzeichnis(roh_pfad):
+    """raw/mahapuranas.html -> raw/mahapuranas-daten (dort liegen die
+    ausgelagerten Kapiteldateien des Artifacts)."""
+    return os.path.splitext(roh_pfad)[0] + "-daten"
+
+
+def _dateien_nachladen(knoten, verzeichnis, bericht=None):
+    """Grosse Werke betten die Artifacts nicht mehr ins HTML ein, sondern legen
+    sie als eigene Datei daneben; im HTML steht dann nur noch
+    'chapters': [] zusammen mit 'chaptersFile': 'data/brahma.json'.
+    Das hier laedt solche Dateien nach, an welcher Stelle sie auch stehen."""
+    if isinstance(knoten, list):
+        for x in knoten:
+            _dateien_nachladen(x, verzeichnis, bericht)
+        return knoten
+    if not isinstance(knoten, dict):
+        return knoten
+    datei = knoten.get("chaptersFile")
+    if datei and not knoten.get("chapters"):
+        pfad = os.path.join(verzeichnis, datei)
+        if os.path.exists(pfad):
+            with open(pfad, encoding="utf-8") as f:
+                knoten["chapters"] = json.load(f)
+            if bericht is not None:
+                bericht.append("   nachgeladen: %-24s %4d Kapitel" % (datei, len(knoten["chapters"])))
+        elif bericht is not None:
+            bericht.append("   FEHLT:       %-24s erwartet in %s" % (datei, verzeichnis))
+    for wert in list(knoten.values()):
+        if isinstance(wert, (dict, list)):
+            _dateien_nachladen(wert, verzeichnis, bericht)
+    return knoten
+
+
+def _buch_laden(roh_pfad, script_id="data-book"):
+    """Liest data-book aus einem Artifact und laedt ausgelagerte Kapitel nach."""
+    inhalt = _huelle_entfernen(open(roh_pfad, encoding="utf-8").read())
+    buch = _json_script(inhalt, script_id)
+    if buch is not None:
+        bericht = []
+        _dateien_nachladen(buch, datenverzeichnis(roh_pfad), bericht)
+        for z in bericht:
+            print(z)
+    return inhalt, buch
+
+
 def _abschnitte_bauen(divisions, werk_slug):
     """Normalisiert die 'divisions' eines Werks zu Abschnitten mit Kapiteln."""
     raus = []
@@ -264,12 +309,10 @@ def werk_aus_einzelwerk(pfad, *, regal, werk_slug, alt_praefix, leseansicht_slug
 
     fortsetzungen: weitere Artifact-Dateien, die dieselben Werkteile fortsetzen
     (das Mahābhārata ist aus Groessengruenden auf mehrere Artifacts verteilt)."""
-    inhalt = _huelle_entfernen(open(pfad, encoding="utf-8").read())
-    buch = _json_script(inhalt, "data-book")
+    inhalt, buch = _buch_laden(pfad)
 
     for fpfad in fortsetzungen:
-        finhalt = _huelle_entfernen(open(fpfad, encoding="utf-8").read())
-        fbuch = _json_script(finhalt, "data-book")
+        _finhalt, fbuch = _buch_laden(fpfad)
         if fbuch:
             _teile_zusammenfuehren(buch.setdefault("divisions", []), fbuch.get("divisions", []))
     if fortsetzungen:
@@ -289,8 +332,7 @@ def werk_aus_einzelwerk(pfad, *, regal, werk_slug, alt_praefix, leseansicht_slug
 
 def werke_aus_sammlung(pfad, *, regal, alt_praefix, leseansicht_slug):
     """aranyakas.html / mahapuranas.html: jede division ist ein eigenes Werk."""
-    inhalt = _huelle_entfernen(open(pfad, encoding="utf-8").read())
-    buch = _json_script(inhalt, "data-book")
+    inhalt, buch = _buch_laden(pfad)
     werke = []
     for d in buch.get("divisions", []):
         key = d.get("key") or slug(d.get("name") or "werk")
@@ -312,8 +354,7 @@ def werke_aus_sammlung(pfad, *, regal, alt_praefix, leseansicht_slug):
 
 def werke_aus_tantras(pfad, *, regal="Tantras & Āgamas", alt_praefix="tantras", leseansicht_slug="tantras"):
     """tantras.html: Gruppen aus Werken."""
-    inhalt = _huelle_entfernen(open(pfad, encoding="utf-8").read())
-    buch = _json_script(inhalt, "data-book")
+    inhalt, buch = _buch_laden(pfad)
     werke = []
     for g in buch.get("groups", []):
         gname = g.get("name") or ""
@@ -1269,6 +1310,24 @@ def baue_sitemap(aus, urls):
 
 # ================================================================ Leseansicht (die bisherigen interaktiven Apps)
 
+def leseansicht_daten_kopieren(roh_pfad, aus):
+    """Kopiert die ausgelagerten Kapiteldateien neben die Leseansicht, damit die
+    App sie dort findet (sie holt sie relativ zu ihrem eigenen Pfad)."""
+    quelle = datenverzeichnis(roh_pfad)
+    if not os.path.isdir(quelle):
+        return 0
+    anzahl = 0
+    for wurzel, _, dateien in os.walk(quelle):
+        for name in dateien:
+            voll = os.path.join(wurzel, name)
+            rel = os.path.relpath(voll, quelle).replace(os.sep, "/")
+            ziel = os.path.join(aus, "leseansicht", rel)
+            os.makedirs(os.path.dirname(ziel), exist_ok=True)
+            shutil.copy(voll, ziel)
+            anzahl += 1
+    return anzahl
+
+
 def baue_leseansicht(roh_pfad, aus, kurz, titel, zurueck_pfad):
     """Rehostet die App aus dem Artifact. Bewusst noindex + canonical auf die
     Werkseite: der Inhalt steht als Einzelkapitel schon crawlbar in der Bibliothek,
@@ -1465,6 +1524,9 @@ def main():
             p = os.path.join(a.raw, datei)
             if os.path.exists(p):
                 baue_leseansicht(p, a.out, kurz, titel, zurueck)
+                n = leseansicht_daten_kopieren(p, a.out)
+                if n:
+                    print("Leseansicht %s: %d ausgelagerte Datendateien mitkopiert" % (kurz, n))
 
     kapitel = sum(len(alle_kapitel(w)) for w in werke)
     einheiten = sum(werk_fertig(w) for w in werke)
