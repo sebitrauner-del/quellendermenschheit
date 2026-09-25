@@ -12,7 +12,7 @@ GitHub Git-Data-API. Damit aus tausenden Kapitelseiten nicht tausende
 Einzelanfragen werden, gehen kleine Dateien gebuendelt als Tree-Eintraege mit
 Inline-Inhalt hoch; nur die wenigen grossen Leseansichten bekommen eigene Blobs.
 """
-import os, sys, json, base64, time, shutil, argparse, subprocess
+import os, sys, json, base64, time, shutil, argparse, subprocess, hashlib
 import urllib.request, urllib.error
 
 BASE       = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -96,8 +96,29 @@ def hochladen(nachricht):
     gesamt = sum(g for _, _, g in dateien)
     print("%d Dateien, %.1f MB" % (len(dateien), gesamt / 1048576))
 
+    # Nur hochladen, was sich geaendert hat. Git benennt Dateien nach dem
+    # SHA-1 von "blob <laenge>\0<inhalt>" - das laesst sich hier ausrechnen und
+    # mit dem Stand im Repo vergleichen.
+    eltern_commit = call("/git/commits/" + eltern, tok=tok)
+    fern = {}
+    baum_fern = call("/git/trees/%s?recursive=1" % eltern_commit["tree"]["sha"], tok=tok)
+    for e in baum_fern.get("tree", []):
+        if e.get("type") == "blob":
+            fern[e["path"]] = e["sha"]
+    if baum_fern.get("truncated"):
+        print("  (Repo-Baum zu gross fuer einen Abruf - es wird alles hochgeladen)")
+        fern = {}
+
+    def blob_sha(pfad):
+        roh = open(pfad, "rb").read()
+        return hashlib.sha1(b"blob %d\0" % len(roh) + roh).hexdigest()
+
     eintraege = []
+    unveraendert = 0
     for rel, voll, groesse in dateien:
+        if fern.get(rel) == blob_sha(voll):
+            unveraendert += 1
+            continue
         if groesse >= GROSS_AB:
             roh = open(voll, "rb").read()
             blob = call("/git/blobs", {"content": base64.b64encode(roh).decode(), "encoding": "base64"}, tok=tok)
@@ -107,9 +128,19 @@ def hochladen(nachricht):
             eintraege.append({"path": rel, "mode": "100644", "type": "blob",
                               "content": open(voll, encoding="utf-8").read()})
 
-    # In Paketen hochladen; das erste Paket ohne base_tree, damit alte Dateien
-    # verschwinden, die es in diesem Bau nicht mehr gibt.
-    baum = None
+    ortsnamen = {rel for rel, _, _ in dateien}
+    entfernt = [pfad for pfad in fern if pfad not in ortsnamen]
+    for pfad in entfernt:
+        eintraege.append({"path": pfad, "mode": "100644", "type": "blob", "sha": None})
+
+    print("  unveraendert: %d, geaendert/neu: %d, entfernt: %d"
+          % (unveraendert, len(eintraege) - len(entfernt), len(entfernt)))
+    if not eintraege:
+        print("Nichts zu tun - der Stand im Repo ist schon aktuell.")
+        return eltern
+
+    # Auf dem bestehenden Baum aufsetzen und nur die Unterschiede schicken.
+    baum = eltern_commit["tree"]["sha"]
     paket, paket_bytes, nr = [], 0, 0
     def paket_senden(p, basis):
         daten = {"tree": p}

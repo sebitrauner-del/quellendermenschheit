@@ -214,6 +214,12 @@ def _abschnitte_bauen(divisions, werk_slug):
         kapitel = []
         for ch in d.get("chapters", []) or []:
             num = ch.get("num")
+            if num in (None, ""):
+                # Manche Kapitel tragen keine Nummer, wohl aber einen Schluessel
+                # wie "adhyaya3" - daraus laesst sie sich sauber ableiten.
+                m = re.search(r"(\d+)\s*$", str(ch.get("key") or ""))
+                if m:
+                    num = m.group(1)
             basis = "kapitel-%s" % num if num not in (None, "") else slug(ch.get("key") or ch.get("title_de") or "kapitel")
             kapitel.append({
                 "num": num,
