@@ -69,6 +69,29 @@ def slug(text, fallback="x"):
     return t or fallback
 
 
+_MEHRZAHL = {
+    "Vers": "Verse", "Kapitel": "Kapitel", "Abschnitt": "Abschnitte",
+    "Teil": "Teile", "Strophe": "Strophen", "Buch": "Bücher", "Hymne": "Hymnen",
+    "Spruch": "Sprüche", "Sūtra": "Sūtras", "Lied": "Lieder",
+}
+
+
+def mehrzahl(label, anzahl=2):
+    """Sanskrit-Fachbegriffe bekommen im Deutschen ein -s (Adhyāyas, Khaṇḍas),
+    deutsche Woerter ihre eigene Form. Naives Anhaengen von -e ergab Unfug
+    wie 'Khaṇḍae'."""
+    if not label:
+        return ""
+    l = str(label).strip()
+    if anzahl == 1:
+        return l
+    if l in _MEHRZAHL:
+        return _MEHRZAHL[l]
+    if l.endswith("s"):
+        return l
+    return l + "s"
+
+
 def eindeutig(basis, vergeben):
     """Sorgt dafuer, dass ein Slug innerhalb seines Bereichs nur einmal vorkommt."""
     s = basis
@@ -110,6 +133,27 @@ _REGAL_ALIAS = {
     "āyurveda": "Āyurveda",
     "haṭha-yoga": "Haṭha-Yoga", "yoga": "Haṭha-Yoga",
 }
+
+
+# Manche Werke tragen in verschiedenen Schulen verschiedene Namen und tauchen
+# deshalb in zwei Regalen auf - einmal uebersetzt, einmal als leerer Platzhalter.
+# Statt den Platzhalter zu loeschen, wird daraus ein Querverweis: die alte
+# Adresse leitet weiter, das Regal zeigt den Verweis, und das Zielwerk nennt
+# seine weiteren Namen (unter denen ja auch gesucht wird).
+VERWEISE = [
+    {
+        "regal": "Āraṇyakas", "slug": "jaiminiya",
+        "titel": "Talavakāra-Āraṇyaka",
+        "weitere_namen": ["Talavakāra-Āraṇyaka", "Jaiminīya-Āraṇyaka"],
+        "ziel_regal": "Brāhmaṇas", "ziel_slug": "jub",
+        "erklaerung": ("Das Talavakāra- oder Jaiminīya-Āraṇyaka ist kein eigenes Werk: Es ist "
+                       "das Jaiminīya-Upaniṣad-Brāhmaṇa, der Āraṇyaka der Jaiminīya- "
+                       "(Talavakāra-)Schule des Sāmaveda. Die Übersetzung steht vollständig "
+                       "unter diesem Namen."),
+    },
+]
+
+VERWEISE_NACH_REGAL = {}
 
 
 def regal_von(rohwert, fallback="Weitere Werke"):
@@ -974,7 +1018,7 @@ def baue_kapitel(aus, w, a, k, vorher, nachher, urls):
 def _kapitel_liste(w, a):
     zeilen = []
     for k in a["kapitel"]:
-        stand = ('<span class="stand">%d %s</span>' % (len(k["einheiten"]), w["einheit_label"] + ("e" if len(k["einheiten"]) != 1 else ""))
+        stand = ('<span class="stand">%d %s</span>' % (len(k["einheiten"]), mehrzahl(w["einheit_label"], len(k["einheiten"])))
                  if k["einheiten"] else '<span class="stand offen">noch nicht übersetzt</span>')
         titel = k["titel_sa"] or k["titel_de"] or "%s %s" % (w["kapitel_label"], k["num"])
         de = '<span class="de">%s</span>' % esc(k["titel_de"]) if (k["titel_de"] and k["titel_sa"]) else ""
@@ -989,7 +1033,7 @@ def baue_abschnitt(aus, w, a, urls):
     brot = [(MARKE, "/"), (w["regal"], regal_pfad(w["regal"])), (w["titel"], werk_pfad(w)), (a["name"] or a["key"], None)]
     inhalt = ['<h1>%s</h1>' % esc(a["name"] or a["key"])]
     inhalt.append('<p class="unter">%s · %d %s</p>' % (esc(w["titel"]), len(a["kapitel"]),
-                                                        esc(w["kapitel_label"] + ("s" if len(a["kapitel"]) != 1 else ""))))
+                                                        esc(mehrzahl(w["kapitel_label"], len(a["kapitel"])))))
     if a["beschreibung"]:
         inhalt.append('<div class="hinweis"><p>%s</p></div>' % esc(a["beschreibung"]))
     inhalt.append(_kapitel_liste(w, a))
@@ -1014,11 +1058,14 @@ def baue_werk(aus, w, urls):
     if w.get("autor"):
         inhalt.append('<span class="sa">%s</span>' % esc(w["autor"]))
     inhalt.append("</h1>")
+    if w.get("weitere_namen"):
+        inhalt.append('<p class="unter">Auch bekannt als %s</p>'
+                      % esc(" · ".join(w["weitere_namen"])))
     if w["untertitel"]:
         inhalt.append('<p class="unter">%s</p>' % esc(w["untertitel"]))
     inhalt.append('<p class="unter">%s · %d %s · %s %s</p>' % (
-        esc(w["regal"]), anzahl_kap, esc(w["kapitel_label"] + ("s" if anzahl_kap != 1 else "")),
-        "{:,}".format(anzahl_einh).replace(",", "."), esc(w["einheit_label"] + "e")))
+        esc(w["regal"]), anzahl_kap, esc(mehrzahl(w["kapitel_label"], anzahl_kap)),
+        "{:,}".format(anzahl_einh).replace(",", "."), esc(mehrzahl(w["einheit_label"], anzahl_einh))))
     if w.get("umfang_hinweis"):
         inhalt.append('<div class="hinweis"><p>Umfang dieser Ausgabe: %s</p></div>' % esc(w["umfang_hinweis"]))
     knoepfe = []
@@ -1063,8 +1110,10 @@ def baue_werk(aus, w, urls):
               + nav_werke(w["regal"], WERKE_NACH_REGAL.get(w["regal"], [w]), pfad))
     schreiben(aus, pfad + "index.html", seite(
         titel="%s – deutsche Übersetzung | %s" % (w["titel"], MARKE),
-        beschreibung="%s – vollständige deutsche Übersetzung, %s für %s, mit Sanskrit im Original. %s" % (
-            w["titel"], w["einheit_label"], w["einheit_label"], w["blurb"] or w["untertitel"] or ""),
+        beschreibung="%s%s – vollständige deutsche Übersetzung, %s für %s, mit Sanskrit im Original. %s" % (
+            w["titel"],
+            (" (auch %s)" % ", ".join(w["weitere_namen"])) if w.get("weitere_namen") else "",
+            w["einheit_label"], w["einheit_label"], w["blurb"] or w["untertitel"] or ""),
         kanonisch=pfad, inhalt="\n".join(inhalt), brotkrumen=brot, ld=ld, seitenleiste=leiste))
     urls.append((pfad, 0.8))
 
@@ -1100,7 +1149,7 @@ def baue_regal(aus, regal, werke, urls):
     zeilen = []
     for w in werke:
         einh = werk_fertig(w)
-        stand = ('<span class="stand">%s %s</span>' % ("{:,}".format(einh).replace(",", "."), esc(w["einheit_label"] + "e"))
+        stand = ('<span class="stand">%s %s</span>' % ("{:,}".format(einh).replace(",", "."), esc(mehrzahl(w["einheit_label"], einh)))
                  if einh else '<span class="stand offen">noch nicht begonnen</span>')
         blurb = '<span class="de">%s</span>' % esc((w["blurb"] or "")[:150]) if w["blurb"] else ""
         zeilen.append('<li><span class="nr"></span><span class="titel">'
@@ -1110,6 +1159,11 @@ def baue_regal(aus, regal, werke, urls):
               '<p class="unter">%s</p>' % esc(REGAL_BESCHREIBUNG.get(regal, "")),
               '<p class="unter">%d Werke · %s übersetzte Abschnitte</p>' % (len(werke), "{:,}".format(gesamt).replace(",", ".")),
               '<ul class="liste">%s</ul>' % "".join(zeilen)]
+    for v in VERWEISE_NACH_REGAL.get(regal, []):
+        ziel = v["ziel"]
+        inhalt.append('<h2>%s</h2>' % esc(v["titel"]))
+        inhalt.append('<div class="hinweis"><p>%s</p><p><a href="%s">%s ansehen →</a></p></div>'
+                      % (esc(v["erklaerung"]), werk_pfad(ziel), esc(ziel["titel"])))
     schreiben(aus, pfad + "index.html", seite(
         titel="%s – deutsche Übersetzungen | %s" % (regal, MARKE),
         beschreibung="%s in eigenständiger deutscher Übersetzung: %d Werke, zweisprachig mit Sanskrit. %s" % (
@@ -1161,6 +1215,9 @@ def baue_suche(aus, werke, urls):
     index = []
     for w in werke:
         index.append({"t": w["titel"], "u": werk_pfad(w), "r": w["regal"], "k": "Werk"})
+        for name in w.get("weitere_namen", []):
+            index.append({"t": name, "u": werk_pfad(w), "r": w["regal"],
+                          "k": "anderer Name für " + w["titel"]})
         for a, k in alle_kapitel(w):
             if not k["einheiten"]:
                 continue
@@ -1222,10 +1279,10 @@ def luecken_text(l):
     teile = []
     if l["leere_teile"]:
         teile.append("%d von %d %s ohne ein einziges Kapitel"
-                     % (len(l["leere_teile"]), l["teile_gesamt"], w["abschnitt_label"] + "s"))
+                     % (len(l["leere_teile"]), l["teile_gesamt"], mehrzahl(w["abschnitt_label"])))
     if l["leere_kapitel"]:
         teile.append("%d von %d %s ohne Verse"
-                     % (len(l["leere_kapitel"]), l["kapitel_gesamt"], w["kapitel_label"] + "s"))
+                     % (len(l["leere_kapitel"]), l["kapitel_gesamt"], mehrzahl(w["kapitel_label"])))
     return "; ".join(teile)
 
 
@@ -1371,6 +1428,37 @@ def baue_leseansicht(roh_pfad, aus, kurz, titel, zurueck_pfad):
 
 # ================================================================ Hauptlauf
 
+def verweise_aufloesen(werke):
+    """Nimmt leere Platzhalter aus der Liste, deren Inhalt unter einem anderen
+    Namen schon uebersetzt ist, und gibt die Querverweise zurueck."""
+    nach_schluessel = {(w["regal"], w["slug"]): w for w in werke}
+    aufgeloest = []
+    entfernen = set()
+    for v in VERWEISE:
+        ziel = nach_schluessel.get((v["ziel_regal"], v["ziel_slug"]))
+        if ziel is None:
+            print("   Verweis ohne Ziel: %s -> %s/%s" % (v["titel"], v["ziel_regal"], v["ziel_slug"]))
+            continue
+        platzhalter = nach_schluessel.get((v["regal"], v["slug"]))
+        if platzhalter is not None and werk_fertig(platzhalter) > 0:
+            print("   Verweis übersprungen: %s hat eigenen Text (%d Abschnitte)"
+                  % (v["titel"], werk_fertig(platzhalter)))
+            continue
+        ziel.setdefault("weitere_namen", [])
+        for n in v["weitere_namen"]:
+            if n not in ziel["weitere_namen"]:
+                ziel["weitere_namen"].append(n)
+        eintrag = dict(v)
+        eintrag["ziel"] = ziel
+        eintrag["alt_urls"] = list(platzhalter["alt_urls"]) if platzhalter else []
+        eintrag["alt_pfad"] = werk_pfad(platzhalter) if platzhalter else None
+        aufgeloest.append(eintrag)
+        if platzhalter is not None:
+            entfernen.add((v["regal"], v["slug"]))
+            print("   Verweis: %s/%s -> %s (%s)" % (v["regal"], v["slug"], ziel["titel"], v["ziel_regal"]))
+    return [w for w in werke if (w["regal"], w["slug"]) not in entfernen], aufgeloest
+
+
 def werke_entdoppeln(werke):
     """Gleicher Slug im gleichen Regal: der Eintrag mit mehr Text gewinnt,
     die Weiterleitungen des anderen werden uebernommen."""
@@ -1431,6 +1519,10 @@ def bauen(raw_dir, aus, md_quellen=()):
                                        werk_slug=q.get("slug"), status=q.get("umfang")))
 
     werke = werke_entdoppeln(werke)
+    werke, verweise = verweise_aufloesen(werke)
+    VERWEISE_NACH_REGAL.clear()
+    for v in verweise:
+        VERWEISE_NACH_REGAL.setdefault(v["regal"], []).append(v)
 
     nach_regal = {}
     for w in werke:
@@ -1483,6 +1575,15 @@ def bauen(raw_dir, aus, md_quellen=()):
             alt = a.get("alt_url")
             if alt and alt not in geschrieben:
                 weiterleitung(aus, alt, abschnitt_pfad(w, a)); umgeleitet += 1
+    for v in VERWEISE_NACH_REGAL.values():
+        for eintrag in v:
+            ziel_pfad = werk_pfad(eintrag["ziel"])
+            for alt_url in [eintrag["alt_pfad"]] + eintrag["alt_urls"]:
+                if alt_url and alt_url not in geschrieben:
+                    weiterleitung(aus, alt_url.rstrip("/") + "/index.html"
+                                  if alt_url.endswith("/") else alt_url, ziel_pfad)
+                    umgeleitet += 1
+
     for alt, ziel in (("/bibliothek/index.html", "/"),
                       ("/mahapuranas/index.html", regal_pfad("Purāṇas")),
                       ("/mahabharata/index.html", "/epen/mahabharata/")):
