@@ -152,6 +152,7 @@ VERWEISE = [
     },
     {
         "regal": "Āraṇyakas", "slug": "jaiminiya",
+        "auch_bei_inhalt": True,
         "titel": "Talavakāra-Āraṇyaka",
         "weitere_namen": ["Talavakāra-Āraṇyaka", "Jaiminīya-Āraṇyaka"],
         "ziel_regal": "Brāhmaṇas", "ziel_slug": "jub",
@@ -278,16 +279,33 @@ def _huelle_entfernen(roh):
     return roh[a.end():e.start()]
 
 
+def _script_muster(script_id):
+    # id kann hinter type= oder anderen Attributen stehen
+    return re.compile(r'<script[^>]*\bid="%s"[^>]*>(.*?)</script>' % re.escape(script_id), re.DOTALL)
+
+
+def _script_ids(inhalt):
+    return re.findall(r'<script[^>]*\bid="([^"]+)"', inhalt)
+
+
 def _json_script(inhalt, script_id):
-    m = re.search(r'<script id="%s"[^>]*>(.*?)</script>' % re.escape(script_id), inhalt, re.DOTALL)
-    return json.loads(m.group(1)) if m else None
+    m = _script_muster(script_id).search(inhalt)
+    if not m:
+        return None
+    try:
+        return json.loads(m.group(1))
+    except ValueError:
+        return None
 
 
 def _gzip_script(inhalt, script_id):
-    m = re.search(r'<script id="%s"[^>]*>(.*?)</script>' % re.escape(script_id), inhalt, re.DOTALL)
+    m = _script_muster(script_id).search(inhalt)
     if not m:
         return None
-    return json.loads(gzip.decompress(base64.b64decode(m.group(1).strip())))
+    try:
+        return json.loads(gzip.decompress(base64.b64decode(m.group(1).strip())))
+    except Exception:
+        return None
 
 
 def _einheit_normalisieren(u):
@@ -328,7 +346,7 @@ def _dateien_nachladen(knoten, verzeichnis, bericht=None):
         return knoten
     if not isinstance(knoten, dict):
         return knoten
-    datei = knoten.get("chaptersFile")
+    datei = knoten.get("chaptersFile") or knoten.get("file")
     if datei and not knoten.get("chapters"):
         pfad = os.path.join(verzeichnis, datei)
         if os.path.exists(pfad):
@@ -344,8 +362,33 @@ def _dateien_nachladen(knoten, verzeichnis, bericht=None):
     return knoten
 
 
+def _zweitscript_nachladen(inhalt, buch):
+    """Manche Artifacts legen die Kapitel nicht in 'divisions', sondern in ein
+    zweites JSON-Script, das nach dem Werkteil-Schluessel aufgeteilt ist."""
+    offen = [d for d in buch.get("divisions", []) if not d.get("chapters")]
+    if not offen:
+        return 0
+    for sid in _script_ids(inhalt):
+        if sid in ("data-book", "data-meta"):
+            continue
+        d = _json_script(inhalt, sid) or _gzip_script(inhalt, sid)
+        if not isinstance(d, dict):
+            continue
+        geladen = 0
+        for teil in offen:
+            kap = d.get(teil.get("key"))
+            if isinstance(kap, list) and kap:
+                teil["chapters"] = kap
+                geladen += len(kap)
+        if geladen:
+            print("   aus Script '%s': %d Kapitel" % (sid, geladen))
+            return geladen
+    return 0
+
+
 def _buch_laden(roh_pfad, script_id="data-book"):
-    """Liest data-book aus einem Artifact und laedt ausgelagerte Kapitel nach."""
+    """Liest data-book aus einem Artifact und holt die Kapitel dazu - egal ob
+    sie eingebettet sind, in einer Beilage liegen oder in einem zweiten Script."""
     inhalt = _huelle_entfernen(open(roh_pfad, encoding="utf-8").read())
     buch = _json_script(inhalt, script_id)
     if buch is not None:
@@ -353,6 +396,7 @@ def _buch_laden(roh_pfad, script_id="data-book"):
         _dateien_nachladen(buch, datenverzeichnis(roh_pfad), bericht)
         for z in bericht:
             print(z)
+        _zweitscript_nachladen(inhalt, buch)
     return inhalt, buch
 
 
@@ -400,8 +444,14 @@ def _abschnitte_bauen(divisions, werk_slug):
                 "einheiten": [_einheit_normalisieren(u) for u in (ch.get("units") or [])],
             })
         raus.append({
+            # Manche Quellen nennen die Soll-Zahl selbst mit - die ist zuverlaessiger
+            # als jede von Hand gepflegte Tabelle.
+            "soll_kapitel": d.get("total_suktas") or d.get("total") or d.get("total_kapitel"),
             "key": d.get("key") or slug(d.get("name") or "teil"),
-            "slug": slug(d.get("key") or d.get("name") or "teil"),
+            # Eine nackte Zahl als Adresse ("/rigveda/1/") sagt nichts; in dem Fall
+            # ist der Name des Werkteils die bessere Quelle ("mandala-1").
+            "slug": slug(d.get("name") or d.get("key") or "teil") if str(d.get("key") or "").isdigit()
+                    else slug(d.get("key") or d.get("name") or "teil"),
             "name": d.get("name") or d.get("key") or "",
             "beschreibung": d.get("desc") or "",
             "kapitel": kapitel,
@@ -551,6 +601,62 @@ def werke_aus_tantras(pfad, *, regal="Tantras & Āgamas", alt_praefix="tantras",
             werk["untergruppe"] = gname
             werke.append(werk)
     return werke
+
+
+def werk_aus_paippalada(pfad, *, regal="Veda-Saṃhitās", werk_slug="paippalada"):
+    """Paippalāda-Saṃhitā: Kāṇḍas mit Hymnen, Hymnen mit Versen."""
+    inhalt = _huelle_entfernen(open(pfad, encoding="utf-8").read())
+    daten = _json_script(inhalt, "data")
+    if not isinstance(daten, list):
+        return []
+    divisions = []
+    for k in daten:
+        kapitel = []
+        for h in k.get("hymns", []):
+            kapitel.append({
+                "num": h.get("id"),
+                "key": slug(str(h.get("id"))),
+                "title_de": h.get("title") or "",
+                "units": h.get("verses", []),
+            })
+        divisions.append({"key": "kanda-%s" % k.get("kanda"), "name": "Kāṇḍa %s" % k.get("kanda"),
+                          "chapters": kapitel})
+    buch = {"title": "Paippalāda-Saṃhitā",
+            "subtitle": "Atharvaveda in der Paippalāda-Rezension: Sanskrit (IAST) und deutsche Übersetzung.",
+            "division_label": "Kāṇḍa", "chapter_label": "Hymne", "unit_label": "Vers",
+            "divisions": divisions}
+    return [_werk_aus_buch(buch, regal=regal, werk_slug=werk_slug,
+                           blurb="Atharvaveda in der Paippalāda-Rezension.")]
+
+
+def werk_aus_maitrayani(pfad, *, regal="Veda-Saṃhitās", werk_slug="maitrayani"):
+    """Maitrāyaṇī-Saṃhitā: Kapitel tragen Kāṇḍa (k) und Prapāṭhaka (p); die
+    Verse stecken in den Anuvākas als [Sanskrit, Deutsch]-Paare."""
+    inhalt = _huelle_entfernen(open(pfad, encoding="utf-8").read())
+    daten = _json_script(inhalt, "data")
+    if not isinstance(daten, dict) or not daten.get("chapters"):
+        return []
+    nach_kanda = {}
+    for c in daten["chapters"]:
+        k = c.get("k")
+        einheiten = []
+        for a in c.get("anu", []):
+            ref = a.get("ref") or a.get("a")
+            for paar in a.get("u", []):
+                if isinstance(paar, (list, tuple)) and len(paar) >= 2:
+                    einheiten.append({"n": ref, "sa": paar[0], "de": paar[1]})
+        nach_kanda.setdefault(k, []).append({
+            "num": c.get("p"), "key": "prapathaka-%s" % c.get("p"),
+            "title_de": "", "note": c.get("note"), "units": einheiten,
+        })
+    divisions = [{"key": "kanda-%s" % k, "name": "Kāṇḍa %s" % k, "chapters": nach_kanda[k]}
+                 for k in sorted(nach_kanda)]
+    buch = {"title": "Maitrāyaṇī-Saṃhitā",
+            "subtitle": "Kṛṣṇa-Yajurveda, Maitrāyaṇī-Schule: Sanskrit (IAST) und deutsche Übersetzung.",
+            "division_label": "Kāṇḍa", "chapter_label": "Prapāṭhaka", "unit_label": "Anuvāka",
+            "divisions": divisions}
+    return [_werk_aus_buch(buch, regal=regal, werk_slug=werk_slug,
+                           blurb="Kṛṣṇa-Yajurveda, Maitrāyaṇī-Schule.")]
 
 
 # ================================================================ Quelle: Markdown-Uebersetzungen
@@ -1496,9 +1602,7 @@ def soll_abgleich(w):
     """Vergleicht den vorhandenen Umfang mit der Standardausgabe.
     Liefert Meldungen; mehr Kapitel als erwartet ist kein Fehler, sondern
     meist eine feinere Unterteilung."""
-    soll = SOLL.get((w["regal"], w["slug"]))
-    if not soll:
-        return []
+    soll = SOLL.get((w["regal"], w["slug"])) or {}
     meldungen = []
     kap = alle_kapitel(w)
 
@@ -1508,6 +1612,12 @@ def soll_abgleich(w):
     if soll.get("abschnitte") and len(w["abschnitte"]) < soll["abschnitte"]:
         meldungen.append("%d von %d %s vorhanden" % (
             len(w["abschnitte"]), soll["abschnitte"], mehrzahl(w["abschnitt_label"])))
+
+    for a in w["abschnitte"]:
+        erwartet = a.get("soll_kapitel")
+        if erwartet and len(a["kapitel"]) < erwartet:
+            meldungen.append("%s: %d von %d %s" % (
+                a["name"] or a["key"], len(a["kapitel"]), erwartet, mehrzahl(w["kapitel_label"])))
 
     for a_slug, erwartet in (soll.get("je_abschnitt") or {}).items():
         a = next((x for x in w["abschnitte"] if x["slug"] == a_slug), None)
@@ -1735,9 +1845,20 @@ def verweise_aufloesen(werke):
             continue
         platzhalter = nach_schluessel.get((v["regal"], v["slug"]))
         if platzhalter is not None and werk_fertig(platzhalter) > 0:
-            print("   Verweis übersprungen: %s hat eigenen Text (%d Abschnitte)"
-                  % (v["titel"], werk_fertig(platzhalter)))
-            continue
+            if not v.get("auch_bei_inhalt"):
+                print("   Verweis übersprungen: %s hat eigenen Text (%d Abschnitte)"
+                      % (v["titel"], werk_fertig(platzhalter)))
+                continue
+            # Beide Seiten tragen denselben Text. Die reichere gewinnt (mehr
+            # Abschnitte, bei Gleichstand das Werk mit Glossar).
+            reichtum = lambda w: (werk_fertig(w), len(w["glossar"]), len(absaetze((w["frontmatter"] or {}).get("vorwort"))))
+            if reichtum(platzhalter) > reichtum(ziel):
+                ziel, platzhalter = platzhalter, ziel
+                v = dict(v, regal=platzhalter["regal"], slug=platzhalter["slug"],
+                         ziel_regal=ziel["regal"], ziel_slug=ziel["slug"])
+            print("   Doppelter Text: %s/%s -> %s/%s (%d gegen %d Abschnitte)"
+                  % (platzhalter["regal"], platzhalter["slug"], ziel["regal"], ziel["slug"],
+                     werk_fertig(platzhalter), werk_fertig(ziel)))
         ziel.setdefault("weitere_namen", [])
         for n in v["weitere_namen"]:
             if n not in ziel["weitere_namen"]:
@@ -1806,6 +1927,18 @@ def bauen(raw_dir, aus, md_quellen=()):
             hole("mahapuranas.html"), regal="Purāṇas", alt_praefix="mahapuranas", leseansicht_slug="mahapuranas")
     if hole("tantras.html"):
         print("== Tantras & Āgamas =="); werke += werke_aus_tantras(hole("tantras.html"))
+    if hole("rigveda.html"):
+        print("== Ṛgveda =="); werke += werk_aus_einzelwerk(
+            hole("rigveda.html"), regal="Veda-Saṃhitās", werk_slug="rigveda",
+            alt_praefix="rigveda", leseansicht_slug="rigveda")
+    if hole("samaveda.html"):
+        print("== Sāmaveda =="); werke += werk_aus_einzelwerk(
+            hole("samaveda.html"), regal="Veda-Saṃhitās", werk_slug="samaveda",
+            alt_praefix="samaveda", leseansicht_slug="samaveda")
+    if hole("paippalada.html"):
+        print("== Paippalāda-Saṃhitā =="); werke += werk_aus_paippalada(hole("paippalada.html"))
+    if hole("maitrayani.html"):
+        print("== Maitrāyaṇī-Saṃhitā =="); werke += werk_aus_maitrayani(hole("maitrayani.html"))
 
     for q in md_quellen:
         print("== Markdown: %s ==" % os.path.basename(q["datei"]))
@@ -1908,6 +2041,10 @@ LESEANSICHTEN = [
     ("aranyakas",   "aranyakas.html",   "Āraṇyakas",              "/aranyakas/"),
     ("tantras",     "tantras.html",     "Tantras & Āgamas",       "/tantras/"),
     ("mahapuranas", "mahapuranas.html", "Mahāpurāṇas",            "/puranas/"),
+    ("rigveda",     "rigveda.html",     "Ṛgveda",                 "/veda/rigveda/"),
+    ("samaveda",    "samaveda.html",    "Sāmaveda",               "/veda/samaveda/"),
+    ("paippalada",  "paippalada.html",  "Paippalāda-Saṃhitā",     "/veda/paippalada/"),
+    ("maitrayani",  "maitrayani.html",  "Maitrāyaṇī-Saṃhitā",     "/veda/maitrayani/"),
 ]
 
 MD_QUELLEN = [
