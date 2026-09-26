@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mahābhārata lesen – Quellen der Menschheit</title>
+<meta name="robots" content="noindex,follow">
+<link rel="canonical" href="https://quellendermenschheit.de/epen/mahabharata/">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📜</text></svg>">
+<link rel="stylesheet" href="/stil.css">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--fb);line-height:1.65;
+-webkit-text-size-adjust:100%}
+.leser{display:grid;grid-template-columns:288px minmax(0,1fr);height:100vh}
+.seitenleiste{border-right:1px solid var(--line);background:var(--bg-el);display:flex;
+flex-direction:column;min-height:0}
+.sl-kopf{padding:1rem 1.1rem .7rem;border-bottom:1px solid var(--line)}
+.sl-kopf a.marke{font-family:var(--fd);font-weight:600;font-size:1.05rem;text-decoration:none;color:var(--ink)}
+.sl-kopf .werk{font-family:var(--fd);font-size:1.25rem;margin-top:.15rem}
+.sl-kopf .zahlen{font-size:.76rem;color:var(--ink-faint);margin-top:.2rem}
+#suche{width:100%;margin-top:.7rem;padding:.45rem .6rem;font:inherit;font-size:.86rem;
+border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink)}
+.sl-liste{overflow-y:auto;overscroll-behavior:contain;flex:1;padding:.5rem 0 2rem}
+.parva{border-bottom:1px solid var(--line)}
+.parva>summary{padding:.5rem 1.1rem;cursor:pointer;font-family:var(--fd);font-size:.95rem;
+list-style:none;display:flex;justify-content:space-between;gap:.5rem;align-items:baseline}
+.parva>summary::-webkit-details-marker{display:none}
+.parva>summary:hover{background:var(--bg-card)}
+.parva>summary .anz{font-family:var(--fb);font-size:.72rem;color:var(--ink-faint)}
+.parva[open]>summary{color:var(--gold-s);font-weight:600}
+.kapliste{display:flex;flex-wrap:wrap;gap:2px;padding:.3rem .9rem .8rem}
+.kapliste a{min-width:2.5em;text-align:center;padding:.22rem .3rem;border-radius:5px;
+font-size:.8rem;text-decoration:none;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.kapliste a:hover{background:var(--bg-card);color:var(--gold-s)}
+.kapliste a.aktiv{background:var(--gold);color:var(--bg-el);font-weight:600}
+.treffer{padding:.3rem 1.1rem;font-size:.84rem}
+.treffer a{display:block;padding:.25rem 0;text-decoration:none;color:var(--ink-soft)}
+.treffer a:hover{color:var(--gold-s)}
+.treffer a .wo{display:block;font-size:.72rem;color:var(--ink-faint)}
+.lesebereich{overflow-y:auto;min-height:0}
+.lb-kopf{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--line);
+padding:.6rem 1.5rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;z-index:5}
+.lb-kopf .weg{font-size:.78rem;color:var(--ink-faint);margin-right:auto}
+.schalter{font:inherit;font-size:.78rem;padding:.3rem .65rem;border:1px solid var(--line);
+border-radius:6px;background:var(--bg-el);color:var(--ink-soft);cursor:pointer}
+.schalter[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:var(--bg-el);font-weight:600}
+.schalter:hover{border-color:var(--gold)}
+.text{max-width:760px;margin:0 auto;padding:1.6rem 1.5rem 5rem}
+.text h1{font-family:var(--fd);font-size:1.7rem;line-height:1.25;margin:.2rem 0 .1rem}
+.text h1 .de{display:block;font-family:var(--fb);font-size:.92rem;font-weight:400;font-style:italic;
+color:var(--ink-soft);margin-top:.3rem}
+.text .kicker{font-size:.76rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+color:var(--gold-s);margin:0}
+.einleitung{background:var(--bg-card);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;
+padding:.7rem 1rem;font-size:.88rem;color:var(--ink-soft);margin:1rem 0}
+.vers{padding:.7rem 0;border-bottom:1px dashed var(--line)}
+.vnr{font-size:.75rem;font-weight:700;color:var(--ink-faint);letter-spacing:.03em}
+.sa{font-style:italic;color:var(--ink-soft);margin:.25rem 0;white-space:pre-line}
+.de{margin:.25rem 0}
+.anm{font-size:.84rem;color:var(--ink-faint);font-style:italic;margin:.35rem 0 0}
+.wfw{margin:.45rem 0 0;font-size:.85rem}
+.wfw summary{cursor:pointer;color:var(--gold-s);font-weight:600;font-size:.78rem}
+.wfw dl{display:grid;grid-template-columns:max-content 1fr;gap:.22rem .9rem;margin:.5rem 0 0;
+background:var(--bg-card);padding:.6rem .8rem;border-radius:8px}
+.wfw dt{font-style:italic;font-weight:600}.wfw dd{margin:0;color:var(--ink-soft)}
+body.ohne-sa .sa{display:none}
+body.ohne-wfw .wfw{display:none}
+.blaettern{display:flex;justify-content:space-between;gap:1rem;margin:2.5rem 0 0;
+padding-top:1rem;border-top:1px solid var(--line);font-size:.9rem}
+.blaettern a{text-decoration:none;max-width:45%}
+.laedt{color:var(--ink-faint);padding:2rem 0}
+#menuknopf{display:none}
+@media(max-width:900px){
+.leser{grid-template-columns:1fr;height:auto}
+/* Ueber "left" statt "transform": transform wird nicht ueberall zuverlaessig
+   auf position:fixed-Elemente angewandt, left dagegen immer. */
+.seitenleiste{position:fixed;top:0;bottom:0;left:-110%;width:86%;max-width:330px;z-index:20;
+transition:left .2s;box-shadow:0 0 40px rgba(0,0,0,.3)}
+body.menu-auf .seitenleiste{left:0}
+#menuknopf{display:inline-block}
+.lb-kopf{padding:.6rem .9rem}.text{padding:1.2rem .9rem 4rem}
+}
+</style>
+</head>
+<body>
+<div class="leser">
+  <aside class="seitenleiste">
+    <div class="sl-kopf">
+      <a class="marke" href="/">Quellen der Menschheit</a>
+      <div class="werk"><a href="/epen/mahabharata/" style="color:inherit;text-decoration:none">Mahābhārata</a></div>
+      <div class="zahlen">18 Parvas · 1.997 Kapitel · 77.899 Verse</div>
+      <input id="suche" type="search" placeholder="Kapitel suchen…" autocomplete="off">
+    </div>
+    <div class="sl-liste" id="nav"></div>
+  </aside>
+  <main class="lesebereich">
+    <div class="lb-kopf">
+      <button class="schalter" id="menuknopf">☰ Inhalt</button>
+      <span class="weg" id="weg"></span>
+      <button class="schalter" id="sa-an" aria-pressed="true">Sanskrit</button>
+      <button class="schalter" id="wfw-an" aria-pressed="true">Wort für Wort</button>
+    </div>
+    <div class="text" id="text"><p class="laedt">Wird geladen …</p></div>
+  </main>
+</div>
+<script>
+let INHALT=null, POS=null;
+const $=s=>document.querySelector(s);
+const nav=$("#nav"), bereich=$("#text"), weg=$("#weg");
+
+function flach(){const a=[];for(const t of INHALT.teile)for(const k of t.kapitel)a.push({t,k});return a;}
+
+function navBauen(){
+  nav.innerHTML=INHALT.teile.map(t=>
+    '<details class="parva" data-teil="'+t.slug+'"><summary>'+t.name+
+    '<span class="anz">'+t.kapitel.length+'</span></summary><div class="kapliste">'+
+    t.kapitel.map(k=>'<a href="#/'+t.slug+'/'+k.n+'" data-k="'+t.slug+'/'+k.n+'">'+k.n+'</a>').join("")+
+    '</div></details>').join("");
+}
+
+function markiere(){
+  nav.querySelectorAll("a.aktiv").forEach(a=>a.classList.remove("aktiv"));
+  if(!POS)return;
+  const a=nav.querySelector('a[data-k="'+POS.t.slug+"/"+POS.k.n+'"]');
+  if(a){a.classList.add("aktiv");
+    const d=a.closest("details"); if(d&&!d.open)d.open=true;
+    const l=$(".sl-liste"); if(l&&l.scrollHeight>l.clientHeight+8)l.scrollTop=a.offsetTop-l.clientHeight/2;}
+}
+
+async function zeige(teilSlug,num,scrollen){
+  const alle=flach();
+  const i=alle.findIndex(x=>x.t.slug===teilSlug&&String(x.k.n)===String(num));
+  if(i<0){bereich.innerHTML='<p class="laedt">Dieses Kapitel gibt es nicht.</p>';return;}
+  POS=alle[i];
+  weg.textContent=INHALT.werk+" · "+POS.t.name;
+  bereich.innerHTML='<p class="laedt">Wird geladen …</p>';
+  markiere();
+  try{
+    const r=await fetch(POS.t.slug+"/"+POS.k.s+".html");
+    if(!r.ok)throw new Error(r.status);
+    const doc=new DOMParser().parseFromString(await r.text(),"text/html");
+    const m=doc.querySelector("main");
+    m.querySelectorAll("nav.blaettern, p.kicker").forEach(e=>e.remove());
+    m.querySelectorAll("a.knopf").forEach(a=>{const p=a.closest("p");(p||a).remove();});
+    m.querySelectorAll("div.hinweis").forEach(e=>e.classList.add("einleitung"));
+    m.querySelectorAll("details.wfw").forEach(e=>{e.className="wfw";});
+    bereich.innerHTML='<p class="kicker">'+POS.t.name+"</p>"+m.innerHTML+blaettern(alle,i);
+  }catch(e){
+    bereich.innerHTML='<p class="laedt">Konnte das Kapitel nicht laden. '+
+      '<a href="'+POS.t.slug+"/"+POS.k.s+'.html">Direkt öffnen</a></p>';
+  }
+  try{localStorage.setItem("leser-pos","#/"+POS.t.slug+"/"+POS.k.n);}catch(e){}
+  if(scrollen!==false)document.querySelector(".lesebereich").scrollTop=0;
+  document.body.classList.remove("menu-auf");
+}
+
+function blaettern(alle,i){
+  const v=i>0?alle[i-1]:null, n=i<alle.length-1?alle[i+1]:null;
+  let h='<nav class="blaettern">';
+  if(v)h+='<a href="#/'+v.t.slug+"/"+v.k.n+'">← '+v.t.name+" "+v.k.n+"</a>";
+  if(n)h+='<a style="margin-left:auto;text-align:right" href="#/'+n.t.slug+"/"+n.k.n+'">'+n.t.name+" "+n.k.n+" →</a>";
+  return h+"</nav>";
+}
+
+function route(){
+  const m=/^#\/([^/]+)\/([^/]+)/.exec(location.hash);
+  if(m)return zeige(decodeURIComponent(m[1]),decodeURIComponent(m[2]));
+  let s=null; try{s=localStorage.getItem("leser-pos");}catch(e){}
+  if(s){location.hash=s;return;}
+  const t=INHALT.teile.find(x=>x.kapitel.length);
+  if(t)location.hash="#/"+t.slug+"/"+t.kapitel[0].n;
+}
+
+function suche(q){
+  const norm=x=>x.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+  if(q.trim().length<2){navBauen();markiere();return;}
+  const n=norm(q), tr=[];
+  for(const t of INHALT.teile)for(const k of t.kapitel){
+    if(norm(t.name+" "+k.n+" "+(k.t||"")).includes(n))tr.push({t,k});
+    if(tr.length>=200)break;
+  }
+  nav.innerHTML=tr.length?'<div class="treffer">'+tr.map(x=>
+    '<a href="#/'+x.t.slug+"/"+x.k.n+'">'+(x.k.t||"Kapitel "+x.k.n)+
+    '<span class="wo">'+x.t.name+" "+x.k.n+"</span></a>").join("")+"</div>"
+    :'<p class="treffer">Nichts gefunden.</p>';
+}
+
+function schalter(id,klasse){
+  const b=$("#"+id);
+  let an=true; try{an=localStorage.getItem(id)!=="0";}catch(e){}
+  const setzen=()=>{document.body.classList.toggle(klasse,!an);b.setAttribute("aria-pressed",an?"true":"false");};
+  setzen();
+  b.addEventListener("click",()=>{an=!an;try{localStorage.setItem(id,an?"1":"0");}catch(e){}setzen();});
+}
+
+addEventListener("hashchange",route);
+addEventListener("keydown",e=>{
+  if(e.target.tagName==="INPUT")return;
+  if(e.key!=="ArrowLeft"&&e.key!=="ArrowRight")return;
+  const alle=flach(),i=alle.findIndex(x=>POS&&x.t.slug===POS.t.slug&&String(x.k.n)===String(POS.k.n));
+  const z=e.key==="ArrowRight"?alle[i+1]:alle[i-1];
+  if(z)location.hash="#/"+z.t.slug+"/"+z.k.n;
+});
+$("#menuknopf").addEventListener("click",()=>document.body.classList.toggle("menu-auf"));
+$("#suche").addEventListener("input",e=>suche(e.target.value));
+
+fetch("inhalt.json").then(r=>r.json()).then(d=>{
+  INHALT=d; navBauen(); schalter("sa-an","ohne-sa"); schalter("wfw-an","ohne-wfw"); route();
+}).catch(()=>{nav.innerHTML='<p class="treffer">Inhaltsverzeichnis konnte nicht geladen werden.</p>';});
+</script>
+</body>
+</html>

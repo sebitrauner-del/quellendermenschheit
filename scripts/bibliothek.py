@@ -1209,7 +1209,10 @@ def baue_kapitel(aus, w, a, k, vorher, nachher, urls):
         inhalt.append("".join(_vers_html(u, w["einheit_label"], i) for i, u in enumerate(k["einheiten"], 1)))
     else:
         inhalt.append('<div class="hinweis"><p>Dieses Kapitel ist noch nicht übersetzt.</p></div>')
-    if w.get("leseansicht"):
+    if w.get("leser"):
+        inhalt.append('<p><a class="knopf" href="%s#/%s/%s">Dieses Kapitel in der Leseansicht</a></p>'
+                      % (w["leser"], a["slug"], k["num"]))
+    elif w.get("leseansicht"):
         inhalt.append('<p><a class="knopf" href="%s">Interaktive Leseansicht des ganzen Werks</a></p>' % w["leseansicht"])
     elif w.get("leseansichten"):
         inhalt.append('<p><a class="knopf" href="%s">Alle Leseansichten des Werks</a></p>' % werk_pfad(w))
@@ -1305,6 +1308,8 @@ def baue_werk(aus, w, urls):
         inhalt.append('<div class="hinweis"><p><strong>Zum Umfang dieser Ausgabe.</strong> %s</p></div>'
                       % esc(w["hinweis"]))
     knoepfe = []
+    if w.get("leser"):
+        knoepfe.append('<a class="knopf" href="%s">Leseansicht</a>' % w["leser"])
     if w.get("leseansicht"):
         knoepfe.append('<a class="knopf" href="%s">Interaktive Leseansicht</a>' % w["leseansicht"])
     for label, url in w.get("leseansichten", []):
@@ -1777,6 +1782,263 @@ def baue_sitemap(aus, urls):
     print("Sitemaps: %s" % ", ".join("%s (%d)" % (n.split("/")[-1], z) for n, z in sitemaps))
 
 
+# ================================================================ Leseansicht fuer ein ganzes Werk
+
+# Werke, fuer die eine eigene, zusammenhaengende Leseansicht erzeugt wird.
+LESER = {("Epen", "mahabharata")}
+
+LESER_CSS = """
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--fb);line-height:1.65;
+-webkit-text-size-adjust:100%}
+.leser{display:grid;grid-template-columns:288px minmax(0,1fr);height:100vh}
+.seitenleiste{border-right:1px solid var(--line);background:var(--bg-el);display:flex;
+flex-direction:column;min-height:0}
+.sl-kopf{padding:1rem 1.1rem .7rem;border-bottom:1px solid var(--line)}
+.sl-kopf a.marke{font-family:var(--fd);font-weight:600;font-size:1.05rem;text-decoration:none;color:var(--ink)}
+.sl-kopf .werk{font-family:var(--fd);font-size:1.25rem;margin-top:.15rem}
+.sl-kopf .zahlen{font-size:.76rem;color:var(--ink-faint);margin-top:.2rem}
+#suche{width:100%;margin-top:.7rem;padding:.45rem .6rem;font:inherit;font-size:.86rem;
+border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink)}
+.sl-liste{overflow-y:auto;overscroll-behavior:contain;flex:1;padding:.5rem 0 2rem}
+.parva{border-bottom:1px solid var(--line)}
+.parva>summary{padding:.5rem 1.1rem;cursor:pointer;font-family:var(--fd);font-size:.95rem;
+list-style:none;display:flex;justify-content:space-between;gap:.5rem;align-items:baseline}
+.parva>summary::-webkit-details-marker{display:none}
+.parva>summary:hover{background:var(--bg-card)}
+.parva>summary .anz{font-family:var(--fb);font-size:.72rem;color:var(--ink-faint)}
+.parva[open]>summary{color:var(--gold-s);font-weight:600}
+.kapliste{display:flex;flex-wrap:wrap;gap:2px;padding:.3rem .9rem .8rem}
+.kapliste a{min-width:2.5em;text-align:center;padding:.22rem .3rem;border-radius:5px;
+font-size:.8rem;text-decoration:none;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+.kapliste a:hover{background:var(--bg-card);color:var(--gold-s)}
+.kapliste a.aktiv{background:var(--gold);color:var(--bg-el);font-weight:600}
+.treffer{padding:.3rem 1.1rem;font-size:.84rem}
+.treffer a{display:block;padding:.25rem 0;text-decoration:none;color:var(--ink-soft)}
+.treffer a:hover{color:var(--gold-s)}
+.treffer a .wo{display:block;font-size:.72rem;color:var(--ink-faint)}
+.lesebereich{overflow-y:auto;min-height:0}
+.lb-kopf{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--line);
+padding:.6rem 1.5rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;z-index:5}
+.lb-kopf .weg{font-size:.78rem;color:var(--ink-faint);margin-right:auto}
+.schalter{font:inherit;font-size:.78rem;padding:.3rem .65rem;border:1px solid var(--line);
+border-radius:6px;background:var(--bg-el);color:var(--ink-soft);cursor:pointer}
+.schalter[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:var(--bg-el);font-weight:600}
+.schalter:hover{border-color:var(--gold)}
+.text{max-width:760px;margin:0 auto;padding:1.6rem 1.5rem 5rem}
+.text h1{font-family:var(--fd);font-size:1.7rem;line-height:1.25;margin:.2rem 0 .1rem}
+.text h1 .de{display:block;font-family:var(--fb);font-size:.92rem;font-weight:400;font-style:italic;
+color:var(--ink-soft);margin-top:.3rem}
+.text .kicker{font-size:.76rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+color:var(--gold-s);margin:0}
+.einleitung{background:var(--bg-card);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;
+padding:.7rem 1rem;font-size:.88rem;color:var(--ink-soft);margin:1rem 0}
+.vers{padding:.7rem 0;border-bottom:1px dashed var(--line)}
+.vnr{font-size:.75rem;font-weight:700;color:var(--ink-faint);letter-spacing:.03em}
+.sa{font-style:italic;color:var(--ink-soft);margin:.25rem 0;white-space:pre-line}
+.de{margin:.25rem 0}
+.anm{font-size:.84rem;color:var(--ink-faint);font-style:italic;margin:.35rem 0 0}
+.wfw{margin:.45rem 0 0;font-size:.85rem}
+.wfw summary{cursor:pointer;color:var(--gold-s);font-weight:600;font-size:.78rem}
+.wfw dl{display:grid;grid-template-columns:max-content 1fr;gap:.22rem .9rem;margin:.5rem 0 0;
+background:var(--bg-card);padding:.6rem .8rem;border-radius:8px}
+.wfw dt{font-style:italic;font-weight:600}.wfw dd{margin:0;color:var(--ink-soft)}
+body.ohne-sa .sa{display:none}
+body.ohne-wfw .wfw{display:none}
+.blaettern{display:flex;justify-content:space-between;gap:1rem;margin:2.5rem 0 0;
+padding-top:1rem;border-top:1px solid var(--line);font-size:.9rem}
+.blaettern a{text-decoration:none;max-width:45%}
+.laedt{color:var(--ink-faint);padding:2rem 0}
+#menuknopf{display:none}
+@media(max-width:900px){
+.leser{grid-template-columns:1fr;height:auto}
+/* Ueber "left" statt "transform": transform wird nicht ueberall zuverlaessig
+   auf position:fixed-Elemente angewandt, left dagegen immer. */
+.seitenleiste{position:fixed;top:0;bottom:0;left:-110%;width:86%;max-width:330px;z-index:20;
+transition:left .2s;box-shadow:0 0 40px rgba(0,0,0,.3)}
+body.menu-auf .seitenleiste{left:0}
+#menuknopf{display:inline-block}
+.lb-kopf{padding:.6rem .9rem}.text{padding:1.2rem .9rem 4rem}
+}
+"""
+
+LESER_JS = r"""
+let INHALT=null, POS=null;
+const $=s=>document.querySelector(s);
+const nav=$("#nav"), bereich=$("#text"), weg=$("#weg");
+
+function flach(){const a=[];for(const t of INHALT.teile)for(const k of t.kapitel)a.push({t,k});return a;}
+
+function navBauen(){
+  nav.innerHTML=INHALT.teile.map(t=>
+    '<details class="parva" data-teil="'+t.slug+'"><summary>'+t.name+
+    '<span class="anz">'+t.kapitel.length+'</span></summary><div class="kapliste">'+
+    t.kapitel.map(k=>'<a href="#/'+t.slug+'/'+k.n+'" data-k="'+t.slug+'/'+k.n+'">'+k.n+'</a>').join("")+
+    '</div></details>').join("");
+}
+
+function markiere(){
+  nav.querySelectorAll("a.aktiv").forEach(a=>a.classList.remove("aktiv"));
+  if(!POS)return;
+  const a=nav.querySelector('a[data-k="'+POS.t.slug+"/"+POS.k.n+'"]');
+  if(a){a.classList.add("aktiv");
+    const d=a.closest("details"); if(d&&!d.open)d.open=true;
+    const l=$(".sl-liste"); if(l&&l.scrollHeight>l.clientHeight+8)l.scrollTop=a.offsetTop-l.clientHeight/2;}
+}
+
+async function zeige(teilSlug,num,scrollen){
+  const alle=flach();
+  const i=alle.findIndex(x=>x.t.slug===teilSlug&&String(x.k.n)===String(num));
+  if(i<0){bereich.innerHTML='<p class="laedt">Dieses Kapitel gibt es nicht.</p>';return;}
+  POS=alle[i];
+  weg.textContent=INHALT.werk+" · "+POS.t.name;
+  bereich.innerHTML='<p class="laedt">Wird geladen …</p>';
+  markiere();
+  try{
+    const r=await fetch(POS.t.slug+"/"+POS.k.s+".html");
+    if(!r.ok)throw new Error(r.status);
+    const doc=new DOMParser().parseFromString(await r.text(),"text/html");
+    const m=doc.querySelector("main");
+    m.querySelectorAll("nav.blaettern, p.kicker").forEach(e=>e.remove());
+    m.querySelectorAll("a.knopf").forEach(a=>{const p=a.closest("p");(p||a).remove();});
+    m.querySelectorAll("div.hinweis").forEach(e=>e.classList.add("einleitung"));
+    m.querySelectorAll("details.wfw").forEach(e=>{e.className="wfw";});
+    bereich.innerHTML='<p class="kicker">'+POS.t.name+"</p>"+m.innerHTML+blaettern(alle,i);
+  }catch(e){
+    bereich.innerHTML='<p class="laedt">Konnte das Kapitel nicht laden. '+
+      '<a href="'+POS.t.slug+"/"+POS.k.s+'.html">Direkt öffnen</a></p>';
+  }
+  try{localStorage.setItem("leser-pos","#/"+POS.t.slug+"/"+POS.k.n);}catch(e){}
+  if(scrollen!==false)document.querySelector(".lesebereich").scrollTop=0;
+  document.body.classList.remove("menu-auf");
+}
+
+function blaettern(alle,i){
+  const v=i>0?alle[i-1]:null, n=i<alle.length-1?alle[i+1]:null;
+  let h='<nav class="blaettern">';
+  if(v)h+='<a href="#/'+v.t.slug+"/"+v.k.n+'">← '+v.t.name+" "+v.k.n+"</a>";
+  if(n)h+='<a style="margin-left:auto;text-align:right" href="#/'+n.t.slug+"/"+n.k.n+'">'+n.t.name+" "+n.k.n+" →</a>";
+  return h+"</nav>";
+}
+
+function route(){
+  const m=/^#\/([^/]+)\/([^/]+)/.exec(location.hash);
+  if(m)return zeige(decodeURIComponent(m[1]),decodeURIComponent(m[2]));
+  let s=null; try{s=localStorage.getItem("leser-pos");}catch(e){}
+  if(s){location.hash=s;return;}
+  const t=INHALT.teile.find(x=>x.kapitel.length);
+  if(t)location.hash="#/"+t.slug+"/"+t.kapitel[0].n;
+}
+
+function suche(q){
+  const norm=x=>x.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+  if(q.trim().length<2){navBauen();markiere();return;}
+  const n=norm(q), tr=[];
+  for(const t of INHALT.teile)for(const k of t.kapitel){
+    if(norm(t.name+" "+k.n+" "+(k.t||"")).includes(n))tr.push({t,k});
+    if(tr.length>=200)break;
+  }
+  nav.innerHTML=tr.length?'<div class="treffer">'+tr.map(x=>
+    '<a href="#/'+x.t.slug+"/"+x.k.n+'">'+(x.k.t||"Kapitel "+x.k.n)+
+    '<span class="wo">'+x.t.name+" "+x.k.n+"</span></a>").join("")+"</div>"
+    :'<p class="treffer">Nichts gefunden.</p>';
+}
+
+function schalter(id,klasse){
+  const b=$("#"+id);
+  let an=true; try{an=localStorage.getItem(id)!=="0";}catch(e){}
+  const setzen=()=>{document.body.classList.toggle(klasse,!an);b.setAttribute("aria-pressed",an?"true":"false");};
+  setzen();
+  b.addEventListener("click",()=>{an=!an;try{localStorage.setItem(id,an?"1":"0");}catch(e){}setzen();});
+}
+
+addEventListener("hashchange",route);
+addEventListener("keydown",e=>{
+  if(e.target.tagName==="INPUT")return;
+  if(e.key!=="ArrowLeft"&&e.key!=="ArrowRight")return;
+  const alle=flach(),i=alle.findIndex(x=>POS&&x.t.slug===POS.t.slug&&String(x.k.n)===String(POS.k.n));
+  const z=e.key==="ArrowRight"?alle[i+1]:alle[i-1];
+  if(z)location.hash="#/"+z.t.slug+"/"+z.k.n;
+});
+$("#menuknopf").addEventListener("click",()=>document.body.classList.toggle("menu-auf"));
+$("#suche").addEventListener("input",e=>suche(e.target.value));
+
+fetch("inhalt.json").then(r=>r.json()).then(d=>{
+  INHALT=d; navBauen(); schalter("sa-an","ohne-sa"); schalter("wfw-an","ohne-wfw"); route();
+}).catch(()=>{nav.innerHTML='<p class="treffer">Inhaltsverzeichnis konnte nicht geladen werden.</p>';});
+"""
+
+
+def baue_leser(aus, w, urls):
+    """Eine einzige Leseansicht fuer das ganze Werk.
+
+    Die Kapitel werden beim Blaettern aus den vorhandenen Kapitelseiten geholt -
+    so gibt es die Texte nur einmal im Repo und der Leser kann nie veralten."""
+    pfad_leser = werk_pfad(w) + "lesen.html"
+    kap = alle_kapitel(w)
+
+    inhalt = {"werk": w["titel"], "teile": []}
+    for a in w["abschnitte"]:
+        if not a["kapitel"]:
+            continue
+        inhalt["teile"].append({
+            "slug": a["slug"], "name": a["name"] or a["key"],
+            "kapitel": [{"n": k["num"], "s": k["slug"],
+                         "t": k["titel_sa"] or k["titel_de"] or ""} for k in a["kapitel"]],
+        })
+    schreiben(aus, werk_pfad(w) + "inhalt.json",
+              json.dumps(inhalt, ensure_ascii=False, separators=(",", ":")))
+
+    verse = werk_fertig(w)
+    seite_html = """<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>%(titel)s lesen – %(marke)s</title>
+<meta name="robots" content="noindex,follow">
+<link rel="canonical" href="%(site)s%(werk)s">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📜</text></svg>">
+<link rel="stylesheet" href="/stil.css">
+<style>%(css)s</style>
+</head>
+<body>
+<div class="leser">
+  <aside class="seitenleiste">
+    <div class="sl-kopf">
+      <a class="marke" href="/">%(marke)s</a>
+      <div class="werk"><a href="%(werk)s" style="color:inherit;text-decoration:none">%(titel)s</a></div>
+      <div class="zahlen">%(teile)d %(teile_label)s · %(kapitel)s %(kapitel_label)s · %(verse)s %(verse_label)s</div>
+      <input id="suche" type="search" placeholder="Kapitel suchen…" autocomplete="off">
+    </div>
+    <div class="sl-liste" id="nav"></div>
+  </aside>
+  <main class="lesebereich">
+    <div class="lb-kopf">
+      <button class="schalter" id="menuknopf">☰ Inhalt</button>
+      <span class="weg" id="weg"></span>
+      <button class="schalter" id="sa-an" aria-pressed="true">Sanskrit</button>
+      <button class="schalter" id="wfw-an" aria-pressed="true">Wort für Wort</button>
+    </div>
+    <div class="text" id="text"><p class="laedt">Wird geladen …</p></div>
+  </main>
+</div>
+<script>%(js)s</script>
+</body>
+</html>
+""" % {
+        "titel": esc(w["titel"]), "marke": MARKE, "site": SITE, "werk": werk_pfad(w),
+        "css": LESER_CSS, "js": LESER_JS,
+        "teile": len(inhalt["teile"]), "teile_label": esc(mehrzahl(w["abschnitt_label"], len(inhalt["teile"]))),
+        "kapitel": "{:,}".format(len(kap)).replace(",", "."),
+        "kapitel_label": esc(mehrzahl(w["kapitel_label"], len(kap))),
+        "verse": "{:,}".format(verse).replace(",", "."),
+        "verse_label": esc(mehrzahl(w["einheit_label"], verse)),
+    }
+    schreiben(aus, pfad_leser, seite_html)
+    return pfad_leser
+
+
 # ================================================================ Gesamtausgabe: ein Werk in einer Datei
 
 # Werke, von denen zusaetzlich eine vollstaendige Einzeldatei erzeugt wird.
@@ -2102,6 +2364,14 @@ def bauen(raw_dir, aus, md_quellen=()):
         geschrieben.add(regal_pfad(regal) + "index.html")
 
     for w in werke:
+        if (w["regal"], w["slug"]) in LESER and werk_fertig(w):
+            w["leser"] = baue_leser(aus, w, urls)
+            geschrieben.add(w["leser"])
+            geschrieben.add(werk_pfad(w) + "inhalt.json")
+            # Eine zusammenhaengende Leseansicht ersetzt die Einzel-Apps der Teile.
+            w["leseansichten"] = []
+            w["leseansicht"] = None
+            print("   Leseansicht: %s" % w["leser"])
         if (w["regal"], w["slug"]) in GESAMTAUSGABEN and werk_fertig(w):
             gpfad, gverse = baue_gesamtausgabe(aus, w, urls)
             geschrieben.add(gpfad)
@@ -2153,6 +2423,11 @@ def bauen(raw_dir, aus, md_quellen=()):
                                   if alt_url.endswith("/") else alt_url, ziel_pfad)
                     umgeleitet += 1
 
+    for i in ("", "2", "3", "4", "5", "6"):
+        quelle = "/leseansicht/mahabharata%s.html" % i
+        if quelle not in geschrieben:
+            weiterleitung(aus, quelle, "/epen/mahabharata/lesen.html"); umgeleitet += 1
+
     for alt, ziel in (("/bibliothek/index.html", "/"),
                       ("/mahapuranas/index.html", regal_pfad("Purāṇas")),
                       ("/mahabharata/index.html", "/epen/mahabharata/")):
@@ -2166,12 +2441,6 @@ LESEANSICHTEN = [
     # (Kurzname, Rohdatei, Titel, Rueckweg in die Bibliothek)
     ("bibliothek",  "bibliothek.html",  "Quellen der Menschheit", "/"),
     ("ramayana",    "ramayana.html",    "Rāmāyaṇa",               "/epen/ramayana/"),
-    ("mahabharata", "mahabharata.html", "Mahābhārata",            "/epen/mahabharata/"),
-    ("mahabharata2", "mahabharata2.html", "Mahābhārata (Teil 2)",  "/epen/mahabharata/"),
-    ("mahabharata3", "mahabharata3.html", "Mahābhārata (Teil 3)",  "/epen/mahabharata/"),
-    ("mahabharata4", "mahabharata4.html", "Mahābhārata (Teil 4)",  "/epen/mahabharata/"),
-    ("mahabharata5", "mahabharata5.html", "Mahābhārata (Teil 5)",  "/epen/mahabharata/"),
-    ("mahabharata6", "mahabharata6.html", "Mahābhārata (Teil 6)",  "/epen/mahabharata/"),
     ("aranyakas",   "aranyakas.html",   "Āraṇyakas",              "/aranyakas/"),
     ("tantras",     "tantras.html",     "Tantras & Āgamas",       "/tantras/"),
     ("mahapuranas", "mahapuranas.html", "Mahāpurāṇas",            "/puranas/"),
