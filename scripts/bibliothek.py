@@ -1311,6 +1311,8 @@ def baue_werk(aus, w, urls):
         knoepfe.append('<a class="knopf" href="%s">Leseansicht %s</a>' % (url, esc(label)))
     if w["glossar"]:
         knoepfe.append('<a class="knopf" href="%sglossar.html">Glossar</a>' % pfad)
+    if w.get("gesamtausgabe"):
+        knoepfe.append('<a class="knopf" href="%s">Gesamtausgabe in einer Datei</a>' % w["gesamtausgabe"])
     if knoepfe:
         inhalt.append("<p>%s</p>" % "".join(knoepfe))
 
@@ -1775,6 +1777,129 @@ def baue_sitemap(aus, urls):
     print("Sitemaps: %s" % ", ".join("%s (%d)" % (n.split("/")[-1], z) for n, z in sitemaps))
 
 
+# ================================================================ Gesamtausgabe: ein Werk in einer Datei
+
+# Werke, von denen zusaetzlich eine vollstaendige Einzeldatei erzeugt wird.
+GESAMTAUSGABEN = {("Epen", "mahabharata")}
+
+GESAMT_CSS = """
+:root{--bg:#EAE4D8;--bg-card:#F2ECDE;--ink:#241E17;--ink-soft:#5B5142;--ink-faint:#8A8069;
+--line:#D3C9B4;--gold:#8C6A2C;--gold-s:#6E5220;--fd:Georgia,"Times New Roman",serif;
+--fb:-apple-system,"Segoe UI",Roboto,sans-serif}
+@media(prefers-color-scheme:dark){:root{--bg:#1B1712;--bg-card:#221E17;--ink:#ECE4D2;
+--ink-soft:#BDB093;--ink-faint:#847A63;--line:#3A3325;--gold:#C39B4E;--gold-s:#D9B972}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--fb);line-height:1.65}
+.blatt{max-width:820px;margin:0 auto;padding:2rem 1.25rem 5rem}
+h1{font-family:var(--fd);font-size:2.4rem;margin:.4rem 0}
+h2.parva{font-family:var(--fd);font-size:1.8rem;margin:4rem 0 .4rem;padding-top:1.4rem;
+border-top:3px double var(--line);color:var(--gold-s)}
+h3.kapitel{font-family:var(--fd);font-size:1.15rem;margin:2.4rem 0 .3rem}
+h3.kapitel .de{display:block;font-family:var(--fb);font-size:.9rem;font-weight:400;
+font-style:italic;color:var(--ink-soft);margin-top:.2rem}
+.titelblatt{border-bottom:1px solid var(--line);padding-bottom:1.5rem;margin-bottom:1rem}
+.zahlen{color:var(--ink-soft);font-size:.95rem}
+.hinweis{background:var(--bg-card);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;
+padding:.8rem 1rem;font-size:.9rem;color:var(--ink-soft);margin:1.2rem 0}
+.einleitung{background:var(--bg-card);border-radius:8px;padding:.7rem .9rem;font-size:.88rem;
+color:var(--ink-soft);margin:.5rem 0 1rem}
+.vers{padding:.55rem 0;border-bottom:1px dashed var(--line)}
+.vers:last-child{border-bottom:0}
+.vnr{font-size:.75rem;font-weight:700;color:var(--ink-faint);letter-spacing:.03em}
+.sa{font-style:italic;color:var(--ink-soft);margin:.2rem 0;white-space:pre-line}
+.de{margin:.2rem 0}
+.anm{font-size:.84rem;color:var(--ink-faint);font-style:italic;margin:.3rem 0 0}
+nav.inhalt{margin:2rem 0 1rem}
+nav.inhalt ol{padding-left:1.4rem}
+nav.inhalt a{color:var(--gold-s);text-decoration:none}
+nav.inhalt a:hover{text-decoration:underline}
+.zurueck{font-size:.85rem;color:var(--ink-faint);text-decoration:none}
+@media print{body{background:#fff;color:#000}.hinweis,.zurueck{display:none}
+h2.parva{page-break-before:always}}
+"""
+
+
+def baue_gesamtausgabe(aus, w, urls):
+    """Das ganze Werk in einer einzigen, in sich geschlossenen Datei -
+    zum Herunterladen, offline Lesen, Durchsuchen und Drucken.
+
+    Ohne die Wort-fuer-Wort-Analyse: mit ihr waere die Datei gut doppelt so
+    gross, und fuer das Durchlesen am Stueck ist sie nicht gedacht."""
+    kap = alle_kapitel(w)
+    verse = sum(len(k["einheiten"]) for _, k in kap)
+    pfad = werk_pfad(w) + "gesamtausgabe.html"
+
+    teile = ['<div class="blatt">',
+             '<div class="titelblatt">',
+             '<a class="zurueck" href="%s">← %s auf quellendermenschheit.de</a>' % (werk_pfad(w), esc(w["titel"])),
+             '<h1>%s</h1>' % esc(w["titel"])]
+    if w["untertitel"]:
+        teile.append('<p class="zahlen">%s</p>' % esc(w["untertitel"]))
+    teile.append('<p class="zahlen">Vollständige Ausgabe in einer Datei · %d %s · %s %s · %s</p>'
+                 % (len(w["abschnitte"]), esc(mehrzahl(w["abschnitt_label"], len(w["abschnitte"]))),
+                    "{:,}".format(len(kap)).replace(",", "."), esc(mehrzahl(w["kapitel_label"], len(kap))),
+                    "{:,}".format(verse).replace(",", ".") + " " + esc(mehrzahl(w["einheit_label"], verse))))
+    teile.append('</div>')
+    teile.append('<div class="hinweis"><p>Diese Datei enthält den gesamten Text: Sanskrit in '
+                 'wissenschaftlicher Umschrift, die deutsche Übersetzung, die Anmerkungen und die '
+                 'Einleitungen zu jedem Kapitel. Die ausklappbare Wort-für-Wort-Analyse ist nicht '
+                 'enthalten – sie steht auf den Einzelkapitel-Seiten der Bibliothek. '
+                 'Alle Übersetzungen sind gemeinfrei.</p></div>')
+
+    teile.append('<nav class="inhalt"><h2 style="font-family:var(--fd);font-size:1.2rem">Inhalt</h2><ol>')
+    for a in w["abschnitte"]:
+        if a["kapitel"]:
+            teile.append('<li><a href="#%s">%s</a> <span class="zahlen">(%d %s)</span></li>'
+                         % (a["slug"], esc(a["name"] or a["key"]), len(a["kapitel"]),
+                            esc(mehrzahl(w["kapitel_label"], len(a["kapitel"])))))
+    teile.append('</ol></nav>')
+
+    for a in w["abschnitte"]:
+        if not a["kapitel"]:
+            continue
+        teile.append('<h2 class="parva" id="%s">%s</h2>' % (a["slug"], esc(a["name"] or a["key"])))
+        if a["beschreibung"]:
+            teile.append('<p class="zahlen">%s</p>' % esc(a["beschreibung"]))
+        for k in a["kapitel"]:
+            bez = "%s %s" % (w["kapitel_label"], k["num"])
+            kopf = "%s: %s" % (bez, k["titel_sa"]) if k["titel_sa"] else bez
+            teile.append('<h3 class="kapitel" id="%s-%s">%s' % (a["slug"], k["slug"], esc(kopf)))
+            if k["titel_de"]:
+                teile.append('<span class="de">%s</span>' % esc(k["titel_de"]))
+            teile.append('</h3>')
+            for absatz in k["anmerkung"]:
+                teile.append('<div class="einleitung">%s</div>' % esc(absatz))
+            for u in k["einheiten"]:
+                teile.append('<div class="vers"><div class="vnr">%s %s</div>'
+                             % (esc(w["einheit_label"]), esc(u.get("n", ""))))
+                if u.get("sa"):
+                    teile.append('<p class="sa">%s</p>' % esc(u["sa"]))
+                if u.get("de"):
+                    teile.append('<p class="de">%s</p>' % esc(u["de"]))
+                if u.get("notes"):
+                    teile.append('<p class="anm">%s</p>' % esc(u["notes"]))
+                teile.append('</div>')
+    teile.append('</div>')
+
+    html_text = """<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>%s – Gesamtausgabe | %s</title>
+<meta name="robots" content="noindex,follow">
+<link rel="canonical" href="%s%s">
+<style>%s</style>
+</head>
+<body>
+%s
+</body>
+</html>
+""" % (esc(w["titel"]), MARKE, SITE, werk_pfad(w), GESAMT_CSS, "\n".join(teile))
+    schreiben(aus, pfad, html_text)
+    return pfad, verse
+
+
 # ================================================================ Leseansicht (die bisherigen interaktiven Apps)
 
 def leseansicht_daten_kopieren(roh_pfad, aus):
@@ -1908,7 +2033,9 @@ def bauen(raw_dir, aus, md_quellen=()):
         print("== Rāmāyaṇa =="); werke += werke_aus_bibliothek(hole("ramayana.html"), "ramayana")
     if hole("mahabharata.html"):
         print("== Mahābhārata ==")
-        fortsetzungen = [hole(f) for f in ("mahabharata2.html", "mahabharata3.html", "mahabharata4.html")]
+        fortsetzungen = [hole(f) for f in ("mahabharata2.html", "mahabharata3.html",
+                                          "mahabharata4.html", "mahabharata5.html",
+                                          "mahabharata6.html")]
         fortsetzungen = [f for f in fortsetzungen if f]
         mb = werk_aus_einzelwerk(
             hole("mahabharata.html"), regal="Epen", werk_slug="mahabharata",
@@ -1975,6 +2102,11 @@ def bauen(raw_dir, aus, md_quellen=()):
         geschrieben.add(regal_pfad(regal) + "index.html")
 
     for w in werke:
+        if (w["regal"], w["slug"]) in GESAMTAUSGABEN and werk_fertig(w):
+            gpfad, gverse = baue_gesamtausgabe(aus, w, urls)
+            geschrieben.add(gpfad)
+            w["gesamtausgabe"] = gpfad
+            print("   Gesamtausgabe: %s (%s Verse)" % (gpfad, "{:,}".format(gverse).replace(",", ".")))
         baue_werk(aus, w, urls); geschrieben.add(werk_pfad(w) + "index.html")
         kap = alle_kapitel(w)
         for idx, (a, k) in enumerate(kap):
@@ -2038,6 +2170,8 @@ LESEANSICHTEN = [
     ("mahabharata2", "mahabharata2.html", "Mahābhārata (Teil 2)",  "/epen/mahabharata/"),
     ("mahabharata3", "mahabharata3.html", "Mahābhārata (Teil 3)",  "/epen/mahabharata/"),
     ("mahabharata4", "mahabharata4.html", "Mahābhārata (Teil 4)",  "/epen/mahabharata/"),
+    ("mahabharata5", "mahabharata5.html", "Mahābhārata (Teil 5)",  "/epen/mahabharata/"),
+    ("mahabharata6", "mahabharata6.html", "Mahābhārata (Teil 6)",  "/epen/mahabharata/"),
     ("aranyakas",   "aranyakas.html",   "Āraṇyakas",              "/aranyakas/"),
     ("tantras",     "tantras.html",     "Tantras & Āgamas",       "/tantras/"),
     ("mahapuranas", "mahapuranas.html", "Mahāpurāṇas",            "/puranas/"),
