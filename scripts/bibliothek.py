@@ -659,6 +659,52 @@ def werk_aus_maitrayani(pfad, *, regal="Veda-Saṃhitās", werk_slug="maitrayani
                            blurb="Kṛṣṇa-Yajurveda, Maitrāyaṇī-Schule.")]
 
 
+def werk_aus_kathaka(pfad, *, regal="Veda-Saṃhitās", werk_slug="kathaka"):
+    """Kāṭhaka-Saṃhitā: ein Manifest (data/index.json) nennt die Abschnitte,
+    jeder Abschnitt liegt in einer eigenen Datei als
+    {key, anu:[{a, t, p:[[Pāda-Buchstabe, Stelle, Sanskrit, Deutsch], ...]}]}."""
+    verz = os.path.join(datenverzeichnis(pfad), "data")
+    manifest_pfad = os.path.join(verz, "index.json")
+    if not os.path.exists(manifest_pfad):
+        return []
+    with open(manifest_pfad, encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    divisions = []
+    for eintrag in manifest:
+        key = eintrag.get("key") or ""
+        datei = os.path.join(verz, key + ".json")
+        if not os.path.exists(datei):
+            print("   FEHLT: %s.json" % key)
+            continue
+        with open(datei, encoding="utf-8") as f:
+            teil = json.load(f)
+        aschwamedha = key.upper().startswith("A")
+        nummer = key[1:]
+        name = ("Aśvamedha-Abschnitt %s" % nummer) if aschwamedha else ("Sthānaka %s" % nummer)
+
+        kapitel = []
+        for a in teil.get("anu", []):
+            einheiten = []
+            for pada in a.get("p", []):
+                if not isinstance(pada, (list, tuple)) or len(pada) < 4:
+                    continue
+                buchstabe, stelle, sa, de = pada[0], pada[1], pada[2], pada[3]
+                einheiten.append({"n": "%s%s" % (stelle, buchstabe or ""), "sa": sa, "de": de})
+            kapitel.append({"num": a.get("a"), "key": "anuvaka-%s" % a.get("a"),
+                            "title_de": a.get("t") or "", "units": einheiten})
+        divisions.append({"key": key.lower(), "name": name, "chapters": kapitel,
+                          "total_kapitel": eintrag.get("n")})
+
+    buch = {"title": "Kāṭhaka-Saṃhitā",
+            "subtitle": ("Kṛṣṇa-Yajurveda, Kaṭha-(Caraka-)Schule: Sanskrit (IAST) und deutsche "
+                         "Übersetzung, Pāda für Pāda."),
+            "division_label": "Sthānaka", "chapter_label": "Anuvāka", "unit_label": "Pāda",
+            "divisions": divisions}
+    return [_werk_aus_buch(buch, regal=regal, werk_slug=werk_slug,
+                           blurb="Kṛṣṇa-Yajurveda, Kaṭha-Schule: 40 Sthānakas und der Aśvamedha-Abschnitt.")]
+
+
 # ================================================================ Quelle: Markdown-Uebersetzungen
 
 _H1        = re.compile(r"^#\s+(.*)$")
@@ -2328,6 +2374,8 @@ def bauen(raw_dir, aus, md_quellen=()):
         print("== Paippalāda-Saṃhitā =="); werke += werk_aus_paippalada(hole("paippalada.html"))
     if hole("maitrayani.html"):
         print("== Maitrāyaṇī-Saṃhitā =="); werke += werk_aus_maitrayani(hole("maitrayani.html"))
+    if hole("kathaka.html"):
+        print("== Kāṭhaka-Saṃhitā =="); werke += werk_aus_kathaka(hole("kathaka.html"))
 
     for q in md_quellen:
         print("== Markdown: %s ==" % os.path.basename(q["datei"]))
