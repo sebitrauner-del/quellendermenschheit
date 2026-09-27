@@ -1051,6 +1051,10 @@ aside.nav{position:static;max-height:none;overflow:visible;border-top:1px solid 
 
 MARKE = "Quellen der Menschheit"
 
+# Bestaetigungscode der Google Search Console. Google prueft ihn im <head> der
+# Startseite - deshalb steht er nur dort und nicht auf allen 9000 Seiten.
+GOOGLE_BESTAETIGUNG = "_o6BbJyq-DOc-7rk_ZYAWckUybHUEx_dGKFALU5WEzA"
+
 # Rollt die Seitenleiste so, dass der aktuelle Eintrag sichtbar ist - aber nur,
 # wenn sie ueberhaupt eine eigene Bildlaufleiste hat (also am Rechner, nicht
 # am Telefon, wo sie am Seitenende steht).
@@ -1564,6 +1568,8 @@ def baue_startseite(aus, nach_regal, urls):
     schreiben(aus, "/index.html", seite(
         titel="%s – deutsche Übersetzungen klassischer Sanskrit-Literatur" % MARKE,
         beschreibung=kuerzen(INTRO), kanonisch="/", inhalt="\n".join(inhalt),
+        kopf_extra=('<meta name="google-site-verification" content="%s">' % GOOGLE_BESTAETIGUNG)
+                   if GOOGLE_BESTAETIGUNG else "",
         ld={"@context": "https://schema.org", "@type": "WebSite", "name": MARKE,
             "description": INTRO, "inLanguage": "de", "url": SITE + "/",
             "potentialAction": {"@type": "SearchAction",
