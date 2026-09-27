@@ -92,6 +92,32 @@ def mehrzahl(label, anzahl=2):
     return l + "s"
 
 
+def kuerzen(text, grenze=158):
+    """Meta-Beschreibungen jenseits von ~160 Zeichen schneidet Google ab.
+    Lieber sauber an der Wortgrenze enden als mitten im Wort."""
+    t = re.sub(r"\s+", " ", (text or "")).strip()
+    if len(t) <= grenze:
+        return t
+    schnitt = t[:grenze].rsplit(" ", 1)[0].rstrip(" ,;:–-")
+    return schnitt + " …"
+
+
+def belegt_vollstaendig(w):
+    """Nur dann 'vollständig' behaupten, wenn es sich belegen laesst: entweder
+    durch eine erfuellte Soll-Zahl oder weil die Ausgabe selbst es sagt."""
+    kap = alle_kapitel(w)
+    if not kap or any(not k["einheiten"] for _, k in kap):
+        return False
+    if any(not a["kapitel"] for a in w["abschnitte"]):
+        return False
+    if soll_abgleich(w):
+        return False
+    hat_soll = ((w["regal"], w["slug"]) in SOLL
+                or any(a.get("soll_kapitel") for a in w["abschnitte"]))
+    sagt_selbst = "vollständig" in ((w.get("untertitel") or "") + " " + (w.get("blurb") or "")).lower()
+    return bool(hat_soll or sagt_selbst)
+
+
 def eindeutig(basis, vergeben):
     """Sorgt dafuer, dass ein Slug innerhalb seines Bereichs nur einmal vorkommt."""
     s = basis
@@ -117,6 +143,11 @@ REGALE = [
     ("Āyurveda",         "ayurveda",     "Die medizinischen Grundlagenwerke."),
     ("Haṭha-Yoga",       "yoga",         "Die klassischen Handbücher des Haṭha-Yoga."),
 ]
+# Ausfuehrliche Einfuehrungen fuer die Regalseiten. Eine Regalseite ist die
+# natuerliche Landeseite fuer Suchen wie "upanishaden deutsche uebersetzung" -
+# dafuer braucht sie mehr als eine Zeile Beschreibung.
+REGAL_EINFUEHRUNG = {'Veda-Saṃhitās': 'Die Saṃhitās sind die ältesten Texte Indiens und die Grundlage der gesamten\nspäteren Überlieferung. „Saṃhitā“ heißt Sammlung: gesammelt sind hier die Hymnen, Melodien und\nOpfersprüche, die beim vedischen Ritual gesprochen und gesungen wurden. Sie entstanden im zweiten\nvorchristlichen Jahrtausend und wurden über Jahrhunderte mündlich weitergegeben, mit einer\nGenauigkeit, die bis heute ihresgleichen sucht.\n\nVier Vedas werden unterschieden. Der <strong>Ṛgveda</strong> versammelt 1.028 Hymnen an Agni, Indra,\ndie Aśvins, Uṣas und die übrigen Götter, darunter das Rätsellied 1.164 und die großen\nkosmologischen Dichtungen des zehnten Maṇḍala wie das Puruṣa-Sūkta und das Nāsadīya-Sūkta über den\nUrsprung der Welt. Der <strong>Sāmaveda</strong> nimmt fast ausschließlich Ṛgveda-Verse auf, ordnet\nsie aber nach ihrer Singweise – er ist das Liederbuch des Udgātṛ-Priesters. Der\n<strong>Yajurveda</strong> enthält die Opferformeln des Adhvaryu und liegt in zwei Fassungen vor:\ndem „weißen“ Yajurveda, der die Formeln rein sammelt, und dem „schwarzen“, der sie mit erklärender\nProsa durchsetzt. Der <strong>Atharvaveda</strong> schließlich steht den übrigen dreien gegenüber:\nHeilsprüche, Schutzzauber, Liebeszauber, Flüche und daneben tiefe kosmologische Spekulation.\n\nJeder Veda wurde in verschiedenen Schulen (śākhās) überliefert, die sich in Textbestand und Betonung\nunterscheiden. Diese Bibliothek enthält den Ṛgveda in der Śākala-Rezension, den Sāmaveda der\nKauthuma-Schule, vom weißen Yajurveda die Vājasaneyi-Saṃhitā in der Mādhyandina-Fassung, vom\nschwarzen Yajurveda gleich drei Schulen – Taittirīya, Maitrāyaṇī und Kāṭhaka – und den Atharvaveda\nin beiden erhaltenen Rezensionen, der Śaunaka- und der Paippalāda-Fassung.\n\nAlle Texte stehen zweisprachig: der Sanskrit-Wortlaut in wissenschaftlicher Umschrift (IAST) neben\neiner eigenständigen deutschen Übersetzung, die Vers für Vers direkt aus dem Original erarbeitet\nwurde. Beim Ṛgveda kommt zu jedem Vers eine ausklappbare Wort-für-Wort-Analyse hinzu, die zeigt, wie\ndie Übersetzung zustande kommt – mit Kasus, Numerus und Wurzelangabe für jede Form.', 'Brāhmaṇas': 'Die Brāhmaṇas sind die Prosawerke, die erklären, was beim Opfer geschieht und\nwarum. Wo die Saṃhitā den Wortlaut der Sprüche liefert, gibt das Brāhmaṇa die Anweisung, die\nDeutung und vor allem die Begründung: Jede Handlung des Rituals wird auf einen Vorgang im Kosmos\noder auf eine Göttergeschichte zurückgeführt. Aus dieser Begründungslust sind die ältesten\nzusammenhängenden Erzählungen der indischen Literatur entstanden – Prajāpatis Schöpfung, der Kampf\nzwischen Göttern und Asuras, die Geschichte von Purūravas und Urvaśī.\n\nSprachlich stehen sie zwischen dem archaischen Vedisch der Hymnen und dem klassischen Sanskrit; sie\nsind damit auch für die Sprachgeschichte von erstem Rang. Inhaltlich sind sie die wichtigste Quelle\nfür das Verständnis des vedischen Opfers überhaupt: Ohne sie bliebe die Saṃhitā ein Spruchvorrat\nohne Zusammenhang.\n\nJede Schule hatte ihr eigenes Brāhmaṇa. Diese Bibliothek enthält beide Brāhmaṇas des Ṛgveda – das\n<strong>Aitareya-Brāhmaṇa</strong> mit seiner ausführlichen Darstellung des Soma-Opfers und der\nKönigsweihe, und das <strong>Kauṣītaki-</strong> (oder Śāṅkhāyana-)<strong>Brāhmaṇa</strong>. Vom\nSāmaveda stehen das umfangreiche <strong>Pañcaviṃśa-</strong> oder Tāṇḍya-Mahābrāhmaṇa in seinen\nfünfundzwanzig Prapāṭhakas, das <strong>Jaiminīya-Brāhmaṇa</strong> mit seinen berühmten\nErzählstücken und das <strong>Jaiminīya-Upaniṣad-Brāhmaṇa</strong> – auch Talavakāra-Āraṇyaka\ngenannt – bereit, in dem die Kena-Upaniṣad überliefert ist.\n\nDas <strong>Śatapatha-Brāhmaṇa</strong> des weißen Yajurveda ist mit Abstand das umfangreichste und\ngilt vielen als das bedeutendste: Es enthält unter anderem die indische Sintflutsage von Manu und\ndem Fisch. Vom Atharvaveda schließlich ist das <strong>Gopatha-Brāhmaṇa</strong> als einziges\nerhalten.\n\nAlle Texte stehen zweisprachig, Abschnitt für Abschnitt: Sanskrit in wissenschaftlicher Umschrift\nneben einer eigenständigen deutschen Übersetzung, erarbeitet direkt aus dem Original.', 'Āraṇyakas': 'Āraṇyaka heißt „zum Wald gehörig“. Diese Texte wurden nach der Überlieferung\naußerhalb der Siedlung unterrichtet, weil sie als besonders wirkmächtig und gefährlich galten. Sie\nbilden die Brücke zwischen dem Ritualdenken der Brāhmaṇas und der Philosophie der Upaniṣaden: Das\nOpfer wird hier zunehmend nicht mehr vollzogen, sondern gedeutet, verinnerlicht und schließlich\ndurch Erkenntnis ersetzt.\n\nInhaltlich steht das Pravargya-Ritual im Mittelpunkt, dazu die Lehre vom Uktha, geheime Namen und\nGleichsetzungen von Körper, Atem und Kosmos. Wer die Upaniṣaden verstehen will, findet hier ihre\nVorgeschichte: Der Gedanke, dass der Atem (prāṇa) das eigentliche Lebensprinzip ist und dass die\nErkenntnis einer Entsprechung wirksamer sei als ihre rituelle Ausführung, wird in den Āraṇyakas zum\nersten Mal durchgeführt.\n\nTraditionell zählt man acht Āraṇyakas, und alle acht sind in dieser Bibliothek vertreten: das\n<strong>Aitareya-</strong> und das <strong>Kauṣītaki-Āraṇyaka</strong> des Ṛgveda, das\n<strong>Chāndogya-</strong> und das <strong>Talavakāra-Āraṇyaka</strong> des Sāmaveda, das\n<strong>Taittirīya-</strong>, das <strong>Maitrāyaṇīya-</strong> und das\n<strong>Kāṭha-Āraṇyaka</strong> des schwarzen Yajurveda sowie das <strong>Bṛhad-Āraṇyaka</strong>\ndes weißen. Mehrere von ihnen enthalten in ihren Schlussteilen die großen Upaniṣaden: Die\nAitareya-Upaniṣad steht im zweiten Buch des Aitareya-Āraṇyaka, die Kauṣītaki-Upaniṣad in dessen\nAdhyāyas 3 bis 6, die Taittirīya-Upaniṣad in den Prapāṭhakas 7 bis 9 des Taittirīya-Āraṇyaka.\n\nDer Umfang der Übersetzungen ist unterschiedlich: Einige Werke liegen vollständig vor, andere als\nAuswahl. Auf jeder Werkseite steht, was die jeweilige Ausgabe enthält, und der\n<a href="/stand.html">Stand der Übersetzungen</a> führt es zusammen.', 'Upaniṣaden': "Die Upaniṣaden sind die philosophischen Schlusstexte des Veda – daher der Name\nVedānta, „Ende des Veda“. In ihnen verschiebt sich die Frage vom richtigen Vollzug des Opfers auf\ndas, was hinter allem steht: Was ist das Selbst (ātman)? Was ist das Brahman? Und in welchem\nVerhältnis stehen die beiden zueinander? Die Antworten dieser Texte haben die gesamte spätere\nindische Philosophie geprägt und über Schopenhauer und die Romantik auch das europäische Denken\nerreicht.\n\nBerühmt sind die großen Gleichungen: <em>tat tvam asi</em> – „das bist du“ – aus dem sechsten\nAdhyāya der Chāndogya-Upaniṣad, <em>ahaṃ brahmāsmi</em> aus der Bṛhadāraṇyaka-Upaniṣad,\n<em>prajñānaṃ brahma</em> aus der Aitareya. Ebenso berühmt sind ihre Erzählungen: Yājñavalkyas\nStreitgespräche am Hof des Janaka, sein Abschied von Maitreyī, Naciketas' Begegnung mit dem Tod,\nŚvetaketus Belehrung durch den Vater.\n\nDie Zahl der Upaniṣaden ist nicht festgelegt. Der Muktikā-Kanon zählt 108, von denen etwa dreizehn\nals die großen oder „Mukhya“-Upaniṣaden gelten, weil sie noch zur vedischen Schulüberlieferung\ngehören und von Śaṅkara kommentiert wurden. Die übrigen sind jünger und gruppieren sich um\nbestimmte Themen: Yoga, Entsagung, Śiva, Viṣṇu, die Göttin.\n\nIn dieser Bibliothek stehen mehrere der großen Upaniṣaden bereits vollständig zur Verfügung. Manche\nhaben eine eigene Seite, andere sind dort zu finden, wo sie überliefert sind – nämlich mitten in\neinem größeren Werk. Die Īśa-Upaniṣad etwa ist der vierzigste Adhyāya der Vājasaneyi-Saṃhitā, die\nKena-Upaniṣad steht im Jaiminīya-Upaniṣad-Brāhmaṇa. Für diese Fälle gibt es unten eigene\nEinstiegsseiten, die erklären, wo der Text steht, und direkt zu den Kapiteln führen.\n\nDazu kommen fünf Yoga-Upaniṣaden des Muktikā-Kanons, die die Lehre von den Cakras, den Nāḍīs und der\nKuṇḍalinī entfalten und damit die Brücke zum Haṭha-Yoga und zum Tantra schlagen.", 'Epen': 'Die beiden großen Erzählwerke Indiens, itihāsa genannt – „so ist es gewesen“. Sie sind\nkeine Dichtung neben der Religion, sondern über zweitausend Jahre hinweg das Medium, in dem\nreligiöse, rechtliche und philosophische Lehre an ein breites Publikum kam.\n\nDas <strong>Mahābhārata</strong> ist mit rund 78.000 Versen das längste Epos der Weltliteratur, etwa\nachtmal so lang wie Ilias und Odyssee zusammen. Erzählt wird der Thronstreit zwischen den Pāṇḍavas\nund den Kauravas, der in der achtzehntägigen Schlacht auf dem Kurukṣetra endet. Aber das ist nur das\nGerüst: In die Handlung eingelassen sind Hunderte von Nebenerzählungen – Nala und Damayantī,\nSāvitrī, die Geschichte von Śakuntalā – und ganze Lehrtexte. Der berühmteste steht im\nBhīṣmaparva: die <strong>Bhagavadgītā</strong>, Kṛṣṇas Unterweisung Arjunas vor der Schlacht. Das\nzwölfte Buch, das Śāntiparva, ist mit 353 Kapiteln allein ein umfangreiches Kompendium zu\nKönigsrecht, Pflichtenlehre und Erlösung.\n\nDas <strong>Rāmāyaṇa</strong> Vālmīkis gilt als ādikāvya, als das erste Kunstgedicht. Es erzählt die\nVerbannung Rāmas, die Entführung Sītās durch Rāvaṇa und den Feldzug nach Laṅkā. Wo das Mahābhārata\nvielstimmig und widersprüchlich bleibt, ist das Rāmāyaṇa geschlossen komponiert – und wurde eben\ndeshalb zum Vorbild der gesamten späteren Kunstdichtung.\n\nBeide Werke stehen hier zweisprachig, Vers für Vers: Sanskrit in wissenschaftlicher Umschrift neben\neiner eigenständigen deutschen Übersetzung mit Wort-für-Wort-Analyse. Das Mahābhārata ist\nvollständig übersetzt – alle achtzehn Parvas – und zusätzlich als\n<a href="/epen/mahabharata/gesamtausgabe.html">Gesamtausgabe in einer Datei</a> sowie in einer\neigenen <a href="/epen/mahabharata/lesen.html">Leseansicht</a> zugänglich.', 'Purāṇas': 'Die Purāṇas sind die große Erzählliteratur des Hinduismus. „Purāṇa“ heißt „alt“, und\ntraditionell soll ein Purāṇa fünf Gegenstände behandeln: die Schöpfung der Welt, ihre\nWiedererschaffung nach den Weltzeitaltern, die Genealogien der Götter und Weisen, die Zeitalter der\nManus und die Geschichte der Königsdynastien. In der Praxis sind sie weit mehr: Sie enthalten\nTempelbaukunde, Heilkunde, Grammatik, Pilgerbeschreibungen, Riten, Gebete und ganze\nphilosophische Traktate.\n\nAchtzehn Werke gelten als die Mahāpurāṇas, die großen Purāṇas. Sie werden nach ihrer Ausrichtung\nauf Viṣṇu, Śiva oder Brahmā gruppiert, doch die Grenzen sind fließend. Das\n<strong>Bhāgavata-Purāṇa</strong> ist das wirkungsmächtigste von allen: Sein zehntes Buch erzählt\ndas Leben Kṛṣṇas von der Geburt bis zum Abschied von Vṛndāvana und wurde zur Grundlage der\ngesamten Kṛṣṇa-Frömmigkeit. Das <strong>Brahma-Purāṇa</strong> steht in den Listen traditionell an\nerster Stelle und enthält ausführliche Abschnitte zur Sonne und zum Jagannātha-Kult von Puri. Das\n<strong>Nārada-Purāṇa</strong> ist ein Ritual- und Mantra-Kompendium mit deutlichem\nPāñcarātra-Einfluss, das <strong>Agni-Purāṇa</strong> eine regelrechte Enzyklopädie, die von der\nIkonographie bis zur Metrik reicht.\n\nAnders als Veda und Epen sind die Purāṇas bis heute nur in Teilen in europäische Sprachen übersetzt,\nins Deutsche noch weit weniger als ins Englische. Die hier entstehenden Übersetzungen arbeiten\nWerk für Werk und Kapitel für Kapitel, zweisprachig und direkt aus dem Sanskrit. Welche Purāṇas\nschon vorliegen und welche noch ausstehen, zeigt die Liste unten und der\n<a href="/stand.html">Stand der Übersetzungen</a>.', 'Tantras & Āgamas': 'Der tantrische Korpus ist der am wenigsten erschlossene Teil der\nSanskrit-Literatur – und zugleich einer der umfangreichsten. Er besteht aus drei großen,\nhistorisch parallelen Traditionslinien, die sich in Gottesvorstellung, Ritual und Terminologie\nunterscheiden, aber eine gemeinsame Formensprache teilen.\n\nDie <strong>Śaiva-Āgamas</strong> sind die Offenbarungstexte des Śaiva-Siddhānta. Achtundzwanzig\ngelten als kanonisch, von Kāmika und Kāraṇa bis Vātula; sie behandeln Erkenntnis (jñāna), Yoga,\nRitual (kriyā) und Lebensführung (caryā) und bilden bis heute die Grundlage des Tempeldienstes in\nSüdindien. Die <strong>Śākta-Tantras</strong> gehören zur Verehrung der Göttin: Kulārṇava,\nMahānirvāṇa, Tantrarāja, Śāradātilaka. Hier stehen Mantra-Lehre, die Cakras und die Kuṇḍalinī im\nMittelpunkt, dazu die Ritualformen des Kaula-Wegs. Die <strong>Pāñcarātra-Saṃhitās</strong>\nschließlich sind die vaiṣṇavischen Gegenstücke: Sātvata, Jayākhya, Lakṣmī-Tantra,\nAhirbudhnya-Saṃhitā.\n\nDiese Texte sind aus mehreren Gründen schwer zugänglich. Viele liegen nur in südindischen\nDruckausgaben oder gar nur in Handschriften vor; die Terminologie ist hochgradig technisch; und ein\nGroßteil ist nie in eine europäische Sprache übersetzt worden. Die hier entstehenden Übersetzungen\ngehen deshalb Werk für Werk vor und machen den Umfang jeder Ausgabe ausdrücklich kenntlich.\n\nDazu kommen die klassischen Handbücher zur Cakra-Lehre, allen voran das\n<strong>Ṣaṭcakranirūpaṇa</strong> Pūrṇānandas von 1577, das über Arthur Avalons Übersetzung die\nwestliche Vorstellung von den Cakras überhaupt erst geprägt hat.', 'Āyurveda': 'Der Āyurveda, die „Wissenschaft vom langen Leben“, ist das älteste vollständig\nerhaltene Medizinsystem Indiens. Seine Grundlagenwerke entstanden in den ersten Jahrhunderten\nunserer Zeitrechnung und sind bis heute die Bezugstexte der Tradition.\n\nDie <strong>Caraka-Saṃhitā</strong> ist das große Werk der inneren Medizin. In acht Sthānas und\neinhundertzwanzig Adhyāyas behandelt sie die Grundbegriffe der Heilkunde, die Lehre von den drei\nDoṣas Vāta, Pitta und Kapha, Diätetik, Diagnostik, Anatomie, Embryologie und Therapie. Sie beginnt\nprogrammatisch mit einem Kapitel „Über das lange Leben“, das den Āyurveda mythologisch von Brahmā\nüber die Aśvins und Indra bis zu Ātreya und seinen sechs Schülern herleitet – und sie enthält\nbereits eine ausgearbeitete Lehre von Untersuchung, Ursache und Behandlung.\n\nDie <strong>Suśruta-Saṃhitā</strong> ist das chirurgische Gegenstück und in der Weltgeschichte der\nMedizin einzigartig früh: Sie beschreibt über hundert Instrumente, die Versorgung von Wunden, den\nStar-Stich, die Behandlung von Brüchen und jene Nasenplastik, die in der europäischen Chirurgie\ndes 18. Jahrhunderts als „indische Methode“ wieder auftauchte. Dazu kommt eine ausführliche\nMateria medica und eine Anatomie, die auf systematischer Leichenuntersuchung beruht.\n\nBeide Werke stehen hier vollständig und zweisprachig: Sanskrit in wissenschaftlicher Umschrift neben\neiner eigenständigen deutschen Übersetzung, mit Vorwort, Einführung, Einordnung jedes Kapitels,\nSachtabellen zu Instrumenten, Substanzgruppen und Krankheitszeichen sowie einem ausführlichen\nGlossar der Fachbegriffe und Pflanzennamen.', 'Haṭha-Yoga': 'Der Haṭha-Yoga ist die körperbetonte Form des Yoga, wie sie sich vom\nelften Jahrhundert an ausbildete. Ihre Handbücher setzen voraus, was die Yoga-Upaniṣaden und die\ntantrische Literatur über den feinstofflichen Körper lehren – die Nāḍīs als Kanäle, die Cakras als\nKnotenpunkte, die Kuṇḍalinī als ruhende Kraft an der Basis der Wirbelsäule – und übersetzen es in\nPraxis: Körperhaltungen (āsana), Atemlenkung (prāṇāyāma), Verschlüsse (bandha) und Siegel (mudrā).\n\nDie <strong>Haṭhapradīpikā</strong> Svātmārāmas aus dem 15. Jahrhundert ist der maßgebliche Text\ndieser Tradition und die Quelle, auf die sich fast alle späteren Darstellungen berufen. Sie ordnet\nden Stoff in vier Kapitel: Āsana, Prāṇāyāma mit den Reinigungsverfahren, Mudrā und Bandha, und\nschließlich Samādhi mit der Lehre vom Nāda, dem inneren Klang. Die <strong>Śivasaṃhitā</strong> ist\nphilosophisch breiter angelegt und verbindet die Praxis mit einer vedāntischen Rahmenlehre; das\n<strong>Gorakṣaśataka</strong>, dem Nātha-Meister Gorakṣanātha zugeschrieben, ist der knappste und\nvermutlich älteste der drei.\n\nWer diese Texte liest, stellt schnell fest, wie wenig sie mit dem zu tun haben, was heute unter\nYoga verstanden wird: Von den Dutzenden heute geläufigen Haltungen kennen sie eine Handvoll, und\nihr Ziel ist nicht Beweglichkeit, sondern die Umkehr des Bindu und die Erweckung der Kuṇḍalinī.\nGerade darum lohnt der Blick in die Quellen.\n\nErgänzend stehen im Regal der <a href="/upanishaden/">Upaniṣaden</a> fünf Yoga-Upaniṣaden des\nMuktikā-Kanons, die dieselbe Lehre in älterer Form entfalten.'}
+
 REGAL_SLUG = {name: s for name, s, _ in REGALE}
 REGAL_BESCHREIBUNG = {name: d for name, _, d in REGALE}
 REGAL_REIHENFOLGE = {name: i for i, (name, _, _) in enumerate(REGALE)}
@@ -921,6 +952,9 @@ h1 .sa{display:block;font-style:italic;font-weight:400;color:var(--ink-soft);fon
 h2{font-family:var(--fd);font-size:1.35rem;margin:2.2rem 0 .6rem;padding-bottom:.25rem;border-bottom:1px solid var(--line)}
 h3{font-family:var(--fd);font-size:1.1rem;margin:1.6rem 0 .4rem;color:var(--gold-s)}
 p.unter{color:var(--ink-soft);font-size:1.02rem;margin:.3rem 0 1.2rem}
+.einfuehrung{margin:1.4rem 0 .5rem;max-width:68ch}
+.einfuehrung p{margin:0 0 .9rem}
+.einfuehrung p:last-child{margin-bottom:0}
 p.kicker{margin:.8rem 0 0;font-size:.82rem;font-weight:600;letter-spacing:.06em;
 text-transform:uppercase;color:var(--gold-s)}
 .hinweis{background:var(--bg-card);border-left:3px solid var(--gold);border-radius:0 8px 8px 0;
@@ -1283,16 +1317,20 @@ def baue_kapitel(aus, w, a, k, vorher, nachher, urls):
         titel_teile.append(a["name"])
     titel_teile.append(kap_bez)
     seiten_titel = ", ".join(titel_teile)
-    kap_name = k["titel_sa"] or k["titel_de"]
+    # Fuer den Seitentitel ist der deutsche Kapitelname die bessere Wahl: der
+    # Sanskrit-Titel ist bei manchen Werken der komplette Anfangsvers.
+    kap_name = k["titel_de"] or k["titel_sa"]
     if kap_name:
+        if len(kap_name) > 64:
+            kap_name = kap_name[:63].rsplit(" ", 1)[0].rstrip(" ,;:·–-") + " …"
         seiten_titel += ": %s" % kap_name
     leiste = anker_setzen(nav_regale(regal_pfad(w["regal"]))
               + nav_werke(w["regal"], WERKE_NACH_REGAL.get(w["regal"], [w]), werk_pfad(w))
               + nav_teile(w, abschnitt_pfad(w, a))
               + nav_kapitel(w, a, pfad))
     schreiben(aus, pfad, seite(
-        titel="%s – %s" % (seiten_titel, MARKE),
-        beschreibung=beschreibung, kanonisch=pfad, inhalt="\n".join(inhalt),
+        titel="%s – deutsche Übersetzung | %s" % (seiten_titel, MARKE),
+        beschreibung=kuerzen(beschreibung), kanonisch=pfad, inhalt="\n".join(inhalt),
         brotkrumen=brot, ld=ld, seitenleiste=leiste))
     urls.append((pfad, 0.6))
 
@@ -1368,6 +1406,17 @@ def baue_werk(aus, w, urls):
         inhalt.append("<p>%s</p>" % "".join(knoepfe))
 
     fm = w["frontmatter"] or {}
+    if not absaetze(fm.get("vorwort")) and not absaetze(fm.get("einfuehrung")):
+        # Ohne eigenes Vorwort bekaeme die Seite gar keinen Fliesstext - weder
+        # fuer Lesende noch fuer Suchmaschinen.
+        inhalt.append("<p>%s steht hier zweisprachig: der Sanskrit-Wortlaut in "
+                      "wissenschaftlicher Umschrift (IAST) neben einer eigenständigen deutschen "
+                      "Übersetzung, %s für %s direkt aus dem Original erarbeitet%s. "
+                      "Die Übersetzung ist gemeinfrei.</p>"
+                      % (esc(w["titel"]), esc(w["einheit_label"]), esc(w["einheit_label"]),
+                         ", mit ausklappbarer Wort-für-Wort-Analyse"
+                         if any(u.get("wfw") for _, k in alle_kapitel(w)[:3] for u in k["einheiten"][:5])
+                         else ""))
     for schluessel, label in (("vorwort", "Vorwort"), ("einfuehrung", "Einführung")):
         ps = absaetze(fm.get(schluessel))
         if ps:
@@ -1397,12 +1446,15 @@ def baue_werk(aus, w, urls):
 
     leiste = anker_setzen(nav_regale(regal_pfad(w["regal"]))
               + nav_werke(w["regal"], WERKE_NACH_REGAL.get(w["regal"], [w]), pfad))
+    voll = belegt_vollstaendig(w)
     schreiben(aus, pfad + "index.html", seite(
-        titel="%s – deutsche Übersetzung | %s" % (w["titel"], MARKE),
-        beschreibung="%s%s – vollständige deutsche Übersetzung, %s für %s, mit Sanskrit im Original. %s" % (
+        titel="%s – %sdeutsche Übersetzung mit Sanskrit | %s" % (
+            w["titel"], "vollständige " if voll else "", MARKE),
+        beschreibung=kuerzen("%s%s – %sdeutsche Übersetzung, %s für %s, mit dem Sanskrit-Original. %s" % (
             w["titel"],
             (" (auch %s)" % ", ".join(w["weitere_namen"])) if w.get("weitere_namen") else "",
-            w["einheit_label"], w["einheit_label"], w["blurb"] or w["untertitel"] or ""),
+            "vollständige " if voll else "",
+            w["einheit_label"], w["einheit_label"], w["blurb"] or w["untertitel"] or "")),
         kanonisch=pfad, inhalt="\n".join(inhalt), brotkrumen=brot, ld=ld, seitenleiste=leiste))
     urls.append((pfad, 0.8))
 
@@ -1444,10 +1496,16 @@ def baue_regal(aus, regal, werke, urls):
         zeilen.append('<li><span class="nr"></span><span class="titel">'
                       '<a href="%s">%s</a>%s</span>%s</li>' % (werk_pfad(w), esc(w["titel"]), blurb, stand))
     gesamt = sum(werk_fertig(w) for w in werke)
-    inhalt = ['<h1>%s</h1>' % esc(regal),
+    inhalt = ['<h1>%s – deutsche Übersetzungen</h1>' % esc(regal),
               '<p class="unter">%s</p>' % esc(REGAL_BESCHREIBUNG.get(regal, "")),
-              '<p class="unter">%d Werke · %s übersetzte Abschnitte</p>' % (len(werke), "{:,}".format(gesamt).replace(",", ".")),
-              '<ul class="liste">%s</ul>' % "".join(zeilen)]
+              '<p class="unter">%d Werke · %s übersetzte Abschnitte</p>' % (len(werke), "{:,}".format(gesamt).replace(",", "."))]
+    einfuehrung = REGAL_EINFUEHRUNG.get(regal)
+    if einfuehrung:
+        inhalt.append('<div class="einfuehrung">%s</div>'
+                      % "".join("<p>%s</p>" % re.sub(r"\s+", " ", a).strip()
+                                for a in einfuehrung.strip().split("\n\n")))
+    inhalt.append("<h2>Die Werke dieses Regals</h2>")
+    inhalt.append('<ul class="liste">%s</ul>' % "".join(zeilen))
     fund = FUNDSTELLEN_NACH_REGAL.get(regal, [])
     if fund:
         inhalt.append("<h2>In anderen Werken überliefert</h2>")
@@ -1468,9 +1526,9 @@ def baue_regal(aus, regal, werke, urls):
         inhalt.append('<div class="hinweis"><p>%s</p><p><a href="%s">%s ansehen →</a></p></div>'
                       % (esc(v["erklaerung"]), werk_pfad(ziel), esc(ziel["titel"])))
     schreiben(aus, pfad + "index.html", seite(
-        titel="%s – deutsche Übersetzungen | %s" % (regal, MARKE),
-        beschreibung="%s in eigenständiger deutscher Übersetzung: %d Werke, zweisprachig mit Sanskrit. %s" % (
-            regal, len(werke), REGAL_BESCHREIBUNG.get(regal, "")),
+        titel="%s – deutsche Übersetzung mit Sanskrit | %s" % (regal, MARKE),
+        beschreibung=kuerzen("%s in eigenständiger deutscher Übersetzung: %d Werke, zweisprachig mit dem Sanskrit-Original. %s" % (
+            regal, len(werke), REGAL_BESCHREIBUNG.get(regal, ""))),
         kanonisch=pfad, inhalt="\n".join(inhalt),
         brotkrumen=[(MARKE, "/"), (regal, None)],
         seitenleiste=anker_setzen(nav_regale(pfad))))
@@ -1505,7 +1563,7 @@ def baue_startseite(aus, nach_regal, urls):
               "<h2>Regale</h2>"] + karten
     schreiben(aus, "/index.html", seite(
         titel="%s – deutsche Übersetzungen klassischer Sanskrit-Literatur" % MARKE,
-        beschreibung=INTRO, kanonisch="/", inhalt="\n".join(inhalt),
+        beschreibung=kuerzen(INTRO), kanonisch="/", inhalt="\n".join(inhalt),
         ld={"@context": "https://schema.org", "@type": "WebSite", "name": MARKE,
             "description": INTRO, "inLanguage": "de", "url": SITE + "/",
             "potentialAction": {"@type": "SearchAction",
